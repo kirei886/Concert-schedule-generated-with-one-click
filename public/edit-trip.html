@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑行程 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 720px; margin: 0 auto; padding: 24px 20px 60px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px 24px; margin-bottom: 16px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .section-title .icon { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+    .section-title .hint { font-size: 12px; font-weight: 400; color: var(--text-light); margin-left: auto; }
+    .form-row { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+    .form-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 10px 14px; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit; box-sizing: border-box; }
+    .form-input:focus { border-color: var(--primary); }
+    textarea.form-input { resize: vertical; min-height: 72px; }
+    .info-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+    .info-label { color: var(--text-sub); }
+    .info-value { color: var(--text-main); font-weight: 500; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-main); cursor: pointer; }
+    .checkbox-row input { width: 16px; height: 16px; cursor: pointer; }
+    .readonly-card { background: #f8f9fa; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+    .readonly-card .rc-title { font-size: 13px; font-weight: 600; color: var(--primary); margin-bottom: 6px; }
+    .empty-section { font-size: 13px; color: var(--text-light); padding: 8px 0; }
+    .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+    .btn { padding: 10px 28px; font-size: 14px; border-radius: 10px; cursor: pointer; border: none; font-weight: 600; transition: all 0.2s; }
+    .btn-save { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; }
+    .btn-cancel { background: #f3f4f6; color: var(--text-sub); }
+    .btn:hover { opacity: 0.88; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+    .budget-total { text-align: center; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .budget-total .amount { font-size: 22px; font-weight: 800; color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <h1 class="page-title">编辑行程</h1>
+    <div id="editContent">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    let currentUser = null;
+
+    (async function() {
+      currentUser = await initPage();
+      if (!currentUser) {
+        window.location.href = '/login.html?redirect=' + encodeURIComponent(location.pathname + location.search);
+        return;
+      }
+      loadTrip();
+    })();
+
+    async function loadTrip() {
+      const params = new URLSearchParams(location.search);
+      const tripId = params.get('id');
+      const content = document.getElementById('editContent');
+
+      if (!tripId) {
+        content.innerHTML = '<div class="empty-state">未指定行程</div>';
+        return;
+      }
+
+      const data = await Auth.apiGet('/api/itineraries/' + tripId);
+      if (!data || data.code !== 0 || !data.data) {
+        content.innerHTML = '<div class="empty-state">行程不存在或无权访问</div>';
+        return;
+      }
+
+      renderEditForm(data.data);
+    }
+
+    function renderEditForm(trip) {
+      const content = document.getElementById('editContent');
+
+      let transportHtml = '';
+      // 航班（只读，来自外部搜索结果，编辑入口保留原有数据）
+      if (trip.flight_info && typeof trip.flight_info === 'object') {
+        const f = trip.flight_info;
+        transportHtml += renderReadonlyCard('✈️ 航班', [
+          ['航班号', f.flight_no || f.flightNo || '-'],
+          ['航线', `${f.dep_city || f.from || '-'} → ${f.arr_city || f.to || '-'}`],
+          ['价格', f._price != null ? '¥' + f._price : (f.price != null ? '¥' + f.price : '-')],
+        ]);
+      }
+      // 高铁
+      if (trip.train_info && typeof trip.train_info === 'object') {
+        const t = trip.train_info;
+        transportHtml += renderReadonlyCard('🚄 高铁', [
+          ['车次', t.train_no || t.train_code || t.code || '-'],
+          ['路线', `${t.dep_station || t.from || '-'} → ${t.arr_station || t.to || '-'}`],
+          ['价格', t._price != null ? '¥' + t._price : (t.price != null ? '¥' + t.price : '-')],
+        ]);
+      }
+      // 巴士
+      if (trip.bus_info && typeof trip.bus_info === 'object') {
+        const b = trip.bus_info;
+        transportHtml += renderReadonlyCard('🚌 巴士', [
+          ['路线', `${b.from_station || b.from || '-'} → ${b.to_station || b.to || '-'}`],
+          ['价格', b._price != null ? '¥' + b._price : (b.price != null ? '¥' + b.price : '-')],
+        ]);
+      }
+      // 打车
+      if (trip.taxi_info && typeof trip.taxi_info === 'object') {
+        const t = trip.taxi_info;
+        const dist = t.estimated_distance ? (t.estimated_distance / 1000).toFixed(1) + 'km' : '-';
+        transportHtml += renderReadonlyCard('🚕 打车', [
+          ['车型', t.car_type_name || t.car_type || '-'],
+          ['预估距离', dist],
+          ['预估费用', t._price != null ? '¥' + t._price : '-'],
+        ]);
+      }
+      // 酒店
+      if (trip.hotel_info && typeof trip.hotel_info === 'object') {
+        const h = trip.hotel_info;
+        transportHtml += renderReadonlyCard('🏨 酒店', [
+          ['酒店', h.name || h.hotel_name || '-'],
+          ['价格/晚', h._price != null ? '¥' + h._price : (h.price != null ? '¥' + h.price : '-')],
+          ['入住/退房', `${formatDate(trip.check_in)} - ${formatDate(trip.check_out)}`],
+        ]);
+      }
+
+      if (!transportHtml) {
+        transportHtml = '<div class="empty-section">该行程暂无已选交通/酒店信息</div>';
+      }
+
+      content.innerHTML = `
+        <form id="editForm" onsubmit="return submitEdit(event, ${trip.id})">
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>基本信息</div>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label>行程标题</label>
+              <input type="text" class="form-input" id="f_title" value="${escapeAttr(trip.title || '')}" placeholder="给行程起个名字" maxlength="60">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>出发城市</label>
+                <input type="text" class="form-input" id="f_depart" value="${escapeAttr(trip.depart_city || '')}" placeholder="如：北京">
+              </div>
+              <div class="form-group">
+                <label>目的城市</label>
+                <input type="text" class="form-input" id="f_dest" value="${escapeAttr(trip.dest_city || '')}" placeholder="如：上海">
+              </div>
+              <div class="form-group">
+                <label>出行日期</label>
+                <input type="date" class="form-input" id="f_travel" value="${trip.travel_date || ''}">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>入住日期</label>
+                <input type="date" class="form-input" id="f_checkin" value="${trip.check_in || ''}">
+              </div>
+              <div class="form-group">
+                <label>退房日期</label>
+                <input type="date" class="form-input" id="f_checkout" value="${trip.check_out || ''}">
+              </div>
+              <div class="form-group">
+                <label>预算总额（元）</label>
+                <input type="number" class="form-input" id="f_budget" value="${trip.total_budget || 0}" min="0" step="0.01">
+              </div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-title">
+              <span class="icon"></span>已选交通/酒店
+              <span class="hint">来自实时搜索，暂不支持在此修改</span>
+            </div>
+            ${transportHtml}
+            <div class="budget-total">
+              <div style="font-size:12px;color:var(--text-sub);margin-bottom:4px;">当前预算总额</div>
+              <div class="amount">¥${trip.total_budget || 0}</div>
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>备注与可见性</div>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label>行程备注</label>
+              <textarea class="form-input" id="f_notes" placeholder="如：记得带荧光棒、入场注意事项..." maxlength="500">${escapeHtml(trip.notes || '')}</textarea>
+            </div>
+            <label class="checkbox-row">
+              <input type="checkbox" id="f_public" ${trip.is_public ? 'checked' : ''}>
+              <span>公开此行程（勾选后可通过分享链接让他人查看）</span>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button type="button" class="btn btn-cancel" onclick="window.location.href='/my-trips.html'">取消</button>
+            <button type="submit" class="btn btn-save">保存修改</button>
+          </div>
+        </form>
+      `;
+    }
+
+    function renderReadonlyCard(title, rows) {
+      const rowsHtml = rows.map(([label, value]) =>
+        `<div class="info-row"><span class="info-label">${label}</span><span class="info-value">${escapeHtml(String(value))}</span></div>`
+      ).join('');
+      return `<div class="readonly-card"><div class="rc-title">${title}</div>${rowsHtml}</div>`;
+    }
+
+    async function submitEdit(e, tripId) {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('f_title').value.trim(),
+        depart_city: document.getElementById('f_depart').value.trim(),
+        dest_city: document.getElementById('f_dest').value.trim(),
+        travel_date: document.getElementById('f_travel').value,
+        check_in: document.getElementById('f_checkin').value,
+        check_out: document.getElementById('f_checkout').value,
+        total_budget: parseFloat(document.getElementById('f_budget').value) || 0,
+        notes: document.getElementById('f_notes').value.trim(),
+        is_public: document.getElementById('f_public').checked,
+      };
+
+      const data = await Auth.apiPut('/api/itineraries/' + tripId, payload);
+      if (data && data.code === 0) {
+        showToast('行程已更新', 'success');
+        setTimeout(() => { window.location.href = '/my-trips.html'; }, 600);
+      } else {
+        showToast(data?.message || '保存失败', 'error');
+      }
+      return false;
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+  </script>
+</body>
+</html>

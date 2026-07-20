@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>行程详情 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 800px; margin: 0 auto; padding: 24px 20px 60px; }
+    .trip-header-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 28px 32px; margin-bottom: 20px; }
+    .trip-header-card h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .trip-header-card .meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-sub); margin-top: 12px; }
+    .section-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px 24px; margin-bottom: 16px; }
+    .section-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .section-title .icon { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+    .info-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+    .info-label { color: var(--text-sub); }
+    .info-value { color: var(--text-main); font-weight: 500; }
+    .budget-total { text-align: center; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); }
+    .budget-total .amount { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .share-banner { background: linear-gradient(135deg, #f0eef5, #fce7f3); border-radius: var(--radius);
+      padding: 20px 24px; text-align: center; margin-bottom: 20px; }
+    .share-banner p { font-size: 13px; color: var(--text-sub); margin-bottom: 12px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <div id="tripContent">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    (async function() {
+      await initPage();
+      loadTrip();
+    })();
+
+    async function loadTrip() {
+      const params = new URLSearchParams(location.search);
+      const shareCode = params.get('share');
+      const tripId = params.get('id');
+
+      let data;
+      if (shareCode) {
+        const res = await fetch(`/api/itineraries/share/${shareCode}`);
+        data = await res.json();
+      } else if (tripId) {
+        data = await Auth.apiGet(`/api/itineraries/${tripId}`);
+      } else {
+        document.getElementById('tripContent').innerHTML = '<div class="empty-state">未指定行程</div>';
+        return;
+      }
+
+      if (!data || data.code !== 0 || !data.data) {
+        document.getElementById('tripContent').innerHTML = '<div class="empty-state">行程不存在或已被删除</div>';
+        return;
+      }
+
+      renderTrip(data.data, !!shareCode);
+    }
+
+    function renderTrip(trip, isShared) {
+      const content = document.getElementById('tripContent');
+
+      let sectionsHtml = '';
+
+      if (trip.flight_info) {
+        const f = typeof trip.flight_info === 'string' ? JSON.parse(trip.flight_info) : trip.flight_info;
+        const depCity = f.dep_city || f.dep_city_name || f.from || '-';
+        const arrCity = f.arr_city || f.arr_city_name || f.to || '-';
+        const price = f.price != null ? f.price : (f._price != null ? f._price : (f.min_price != null ? f.min_price : '-'));
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>航班信息</div>
+            <div class="info-row"><span class="info-label">航班号</span><span class="info-value">${escapeHtml(f.flight_no || f.flightNo || '-')}</span></div>
+            <div class="info-row"><span class="info-label">航线</span><span class="info-value">${escapeHtml(depCity)} → ${escapeHtml(arrCity)}</span></div>
+            <div class="info-row"><span class="info-label">出发</span><span class="info-value">${escapeHtml(f.dep_time || f.depTime || '-')}</span></div>
+            <div class="info-row"><span class="info-label">到达</span><span class="info-value">${escapeHtml(f.arr_time || f.arrTime || '-')}</span></div>
+            <div class="info-row"><span class="info-label">价格</span><span class="info-value">¥${price}</span></div>
+          </div>
+        `;
+      }
+
+      if (trip.train_info) {
+        const t = typeof trip.train_info === 'string' ? JSON.parse(trip.train_info) : trip.train_info;
+        const fromSt = t.dep_station || t.from_station || t.from || '-';
+        const toSt = t.arr_station || t.to_station || t.to || '-';
+        const code = t.train_no || t.train_code || t.trainNo || t.code || '-';
+        const price = t.price != null ? t.price : (t._price != null ? t._price : '-');
+        const arrDays = parseInt(t.arrive_days || '0');
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>高铁信息</div>
+            <div class="info-row"><span class="info-label">车次</span><span class="info-value">${escapeHtml(code)}</span></div>
+            <div class="info-row"><span class="info-label">出发</span><span class="info-value">${escapeHtml(fromSt)} ${escapeHtml(t.dep_time || t.depTime || '-')}</span></div>
+            <div class="info-row"><span class="info-label">到达</span><span class="info-value">${escapeHtml(toSt)} ${escapeHtml(t.arr_time || t.arrTime || '-')}${arrDays > 0 ? ' (+'+arrDays+'天)' : ''}</span></div>
+            <div class="info-row"><span class="info-label">价格</span><span class="info-value">¥${price}</span></div>
+          </div>
+        `;
+      }
+
+      if (trip.bus_info) {
+        const b = typeof trip.bus_info === 'string' ? JSON.parse(trip.bus_info) : trip.bus_info;
+        const route = b.route || ((b.from_station || b.from) && (b.to_station || b.to) ? (b.from_station || b.from) + ' → ' + (b.to_station || b.to) : '-');
+        const price = b.price != null ? b.price : (b._price != null ? b._price : '-');
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>巴士信息</div>
+            <div class="info-row"><span class="info-label">路线</span><span class="info-value">${escapeHtml(route)}</span></div>
+            <div class="info-row"><span class="info-label">出发时间</span><span class="info-value">${escapeHtml(b.dep_time || b.time || '-')}</span></div>
+            <div class="info-row"><span class="info-label">价格</span><span class="info-value">¥${price}</span></div>
+          </div>
+        `;
+      }
+
+      if (trip.taxi_info) {
+        const t = typeof trip.taxi_info === 'string' ? JSON.parse(trip.taxi_info) : trip.taxi_info;
+        const price = t._price != null ? t._price : (t.estimated_price != null ? t.estimated_price : '-');
+        const dist = t.estimated_distance ? (t.estimated_distance / 1000).toFixed(1) + 'km' : '';
+        const dur = t.estimated_duration ? Math.floor(t.estimated_duration / 60) + '分钟' : '';
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>打车信息</div>
+            <div class="info-row"><span class="info-label">车型</span><span class="info-value">${escapeHtml(t.car_type_name || t.car_type || '-')}</span></div>
+            <div class="info-row"><span class="info-label">预估距离</span><span class="info-value">${dist || '-'}</span></div>
+            <div class="info-row"><span class="info-label">预估时长</span><span class="info-value">${dur || '-'}</span></div>
+            <div class="info-row"><span class="info-label">预估费用</span><span class="info-value">¥${price}</span></div>
+          </div>
+        `;
+      }
+
+      if (trip.hotel_info) {
+        const h = typeof trip.hotel_info === 'string' ? JSON.parse(trip.hotel_info) : trip.hotel_info;
+        const name = h.name || h.hotel_name || '-';
+        const price = h.price != null ? h.price : (h._price != null ? h._price : (h.min_price != null ? h.min_price : '-'));
+        const dist = h.distance_km != null ? Number(h.distance_km).toFixed(2) + 'km' : (h._dist || '');
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>酒店信息</div>
+            <div class="info-row"><span class="info-label">酒店</span><span class="info-value">${escapeHtml(name)}</span></div>
+            ${h.star_tag ? `<div class="info-row"><span class="info-label">星级</span><span class="info-value">${escapeHtml(h.star_tag)}</span></div>` : ''}
+            ${h.review_score ? `<div class="info-row"><span class="info-label">评分</span><span class="info-value">★ ${h.review_score}</span></div>` : ''}
+            <div class="info-row"><span class="info-label">入住</span><span class="info-value">${formatDate(trip.check_in)}</span></div>
+            <div class="info-row"><span class="info-label">退房</span><span class="info-value">${formatDate(trip.check_out)}</span></div>
+            <div class="info-row"><span class="info-label">价格/晚</span><span class="info-value">¥${price}</span></div>
+            ${dist ? `<div class="info-row"><span class="info-label">距场馆</span><span class="info-value">${dist}</span></div>` : ''}
+          </div>
+        `;
+      }
+
+      if (trip.notes) {
+        sectionsHtml += `
+          <div class="section-card">
+            <div class="section-title"><span class="icon"></span>备注</div>
+            <p style="font-size:13px;color:var(--text-main);line-height:1.6;">${escapeHtml(trip.notes)}</p>
+          </div>
+        `;
+      }
+
+      sectionsHtml += `
+        <div class="section-card">
+          <div class="budget-total">
+            <div style="font-size:13px;color:var(--text-sub);margin-bottom:4px;">预算总额</div>
+            <div class="amount">¥${trip.total_budget || 0}</div>
+          </div>
+        </div>
+      `;
+
+      content.innerHTML = `
+        ${isShared ? `<div class="share-banner"><p>这是 ${escapeHtml(trip.author_name || '匿名用户')} 分享的演唱会行程</p></div>` : ''}
+        <div class="trip-header-card">
+          <h1>${escapeHtml(trip.title || '未命名行程')}</h1>
+          ${trip.artist ? `<div style="font-size:14px;color:var(--primary);font-weight:500;">${escapeHtml(trip.artist)} ${trip.tour_name ? '· ' + escapeHtml(trip.tour_name) : ''}</div>` : ''}
+          <div class="meta">
+            ${trip.depart_city ? `<span>${escapeHtml(trip.depart_city)} -> ${escapeHtml(trip.dest_city || '')}</span>` : ''}
+            ${trip.travel_date ? `<span>出行 ${formatDate(trip.travel_date)}</span>` : ''}
+            ${trip.concert_date ? `<span>演唱会 ${formatDate(trip.concert_date)}</span>` : ''}
+            ${trip.venue ? `<span>${escapeHtml(trip.venue)}</span>` : ''}
+          </div>
+        </div>
+        ${sectionsHtml}
+      `;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的收藏 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+    .fav-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 18px 20px; transition: all 0.3s ease; border: 1.5px solid transparent; display: flex; flex-direction: column; }
+    .fav-card:hover { box-shadow: var(--shadow-hover); border-color: var(--primary-light); transform: translateY(-2px); }
+    .fav-tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 10px; align-self: flex-start; }
+    .tag-fire { background: linear-gradient(135deg, #ff6b6b, #ee5a24); color: #fff; }
+    .tag-hot { background: #ffa502; color: #fff; }
+    .tag-soon { background: #2ed573; color: #fff; }
+    .tag-pre { background: #70a1ff; color: #fff; }
+    .tag-done { background: #bdc3c7; color: #fff; }
+    .fav-artist { font-size: 16px; font-weight: 700; color: var(--text-main); }
+    .fav-tour { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+    .fav-meta { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-sub); margin-top: 12px; }
+    .fav-meta-item { display: flex; align-items: center; gap: 6px; }
+    .fav-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border); }
+    .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 16px; cursor: pointer; border: none; font-weight: 500; transition: all 0.2s; flex: 1; }
+    .btn-fill { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; }
+    .btn-unfav { background: white; border: 1.5px solid #fecaca; color: #ef4444; }
+    .btn-sm:hover { opacity: 0.85; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+    .empty-state a { color: var(--primary); text-decoration: none; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <h1 class="page-title">我的收藏</h1>
+    <div id="favList" class="fav-grid">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    let currentUser = null;
+
+    (async function() {
+      currentUser = await initPage();
+      if (!currentUser) {
+        window.location.href = '/login.html?redirect=/favorites.html';
+        return;
+      }
+      loadFavorites();
+    })();
+
+    async function loadFavorites() {
+      const data = await Auth.apiGet('/api/favorites');
+      const container = document.getElementById('favList');
+
+      if (!data || data.code !== 0 || !data.data || data.data.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1;">
+            <div class="emoji">💜</div>
+            <p style="font-size:16px;margin-bottom:8px;">还没有收藏任何演唱会</p>
+            <p>去<a href="/">首页</a>点击资讯栏的心形按钮，收藏感兴趣的演唱会吧！</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = data.data.map(c => renderCard(c)).join('');
+    }
+
+    function getTagClass(tag) {
+      if (tag === '火爆') return 'tag-fire';
+      if (tag === '热卖中') return 'tag-hot';
+      if (tag === '即将开唱') return 'tag-soon';
+      if (tag === '预售中') return 'tag-pre';
+      if (tag === '已开唱') return 'tag-done';
+      return 'tag-hot';
+    }
+
+    function renderCard(c) {
+      return `
+        <div class="fav-card">
+          ${c.tag ? `<span class="fav-tag ${getTagClass(c.tag)}">${escapeHtml(c.tag)}</span>` : ''}
+          <div class="fav-artist">${escapeHtml(c.artist || '未知艺人')}</div>
+          ${c.tour_name ? `<div class="fav-tour">「${escapeHtml(c.tour_name)}」</div>` : ''}
+          <div class="fav-meta">
+            ${c.concert_date ? `<div class="fav-meta-item">📅 ${formatDate(c.concert_date)} ${escapeHtml(c.start_time || '')}</div>` : ''}
+            ${c.city ? `<div class="fav-meta-item">📍 ${escapeHtml(c.city)}</div>` : ''}
+            ${c.venue ? `<div class="fav-meta-item">🎤 ${escapeHtml(c.venue)}</div>` : ''}
+          </div>
+          <div class="fav-actions">
+            <button class="btn-sm btn-fill" onclick='fillForm(${JSON.stringify(c).replace(/'/g, "&#39;")})'>填入表单</button>
+            <button class="btn-sm btn-unfav" onclick="unfavorite(${c.id})">取消收藏</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // 将演唱会信息存入 sessionStorage 后跳转首页，首页读取后自动填入表单
+    function fillForm(concert) {
+      sessionStorage.setItem('pendingConcert', JSON.stringify(concert));
+      window.location.href = '/';
+    }
+
+    async function unfavorite(concertId) {
+      if (!confirm('确定取消收藏这场演唱会吗？')) return;
+      const data = await Auth.apiDelete('/api/favorites/' + concertId);
+      if (data && data.code === 0) {
+        showToast('已取消收藏', 'success');
+        loadFavorites();
+      } else {
+        showToast(data?.message || '操作失败', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

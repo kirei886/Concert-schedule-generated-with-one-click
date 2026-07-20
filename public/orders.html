@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的订单 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-wrap { max-width: 900px; margin: 0 auto; padding: 80px 20px 40px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .status-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .status-tab { padding: 8px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid var(--border); background: white; color: var(--text-sub); transition: all 0.2s; }
+    .status-tab.active { border-color: var(--primary); color: var(--primary); background: rgba(124,58,237,0.05); }
+    .status-tab:hover { border-color: var(--primary); }
+    .order-card { background: white; border-radius: 16px; box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; transition: box-shadow 0.3s; }
+    .order-card:hover { box-shadow: var(--shadow-hover); }
+    .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .order-no { font-size: 12px; color: var(--text-light); }
+    .order-date { font-size: 12px; color: var(--text-light); }
+    .order-type-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+    .order-type-badge.flight { background: #dbeafe; color: #2563eb; }
+    .order-type-badge.train { background: #dcfce7; color: #16a34a; }
+    .order-type-badge.bus { background: #fef3c7; color: #d97706; }
+    .order-type-badge.hotel { background: #fce7f3; color: #db2777; }
+    .order-type-badge.taxi { background: #e0e7ff; color: #6366f1; }
+    .order-name { font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 6px; }
+    .order-detail { font-size: 13px; color: var(--text-sub); line-height: 1.6; }
+    .order-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .order-price { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .order-price small { font-size: 13px; font-weight: 400; color: var(--text-sub); }
+    .order-actions { display: flex; gap: 8px; }
+    .order-status { display: inline-block; padding: 3px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .order-status.pending { background: #fef3c7; color: #d97706; }
+    .order-status.paid { background: #dcfce7; color: #16a34a; }
+    .order-status.refunded { background: #fee2e2; color: #dc2626; }
+    .order-status.cancelled { background: #f3f4f6; color: #9ca3af; }
+    .btn-sm { padding: 6px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; text-decoration: none; display: inline-block; }
+    .btn-sm.pay { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; }
+    .btn-sm.refund { background: white; border: 1.5px solid #ef4444; color: #ef4444; }
+    .btn-sm.cancel { background: white; border: 1.5px solid var(--border); color: var(--text-sub); }
+    .btn-sm.detail { background: white; border: 1.5px solid var(--primary); color: var(--primary); }
+    .btn-sm:hover { opacity: 0.85; }
+    .btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
+    .empty-state .text { font-size: 15px; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-content { background: white; border-radius: 20px; padding: 32px; max-width: 420px; width: 90%; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .modal-subtitle { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; }
+    .modal-body { margin-bottom: 24px; }
+    .fee-card { background: #fef3c7; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .fee-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; }
+    .fee-row .label { color: #92400E; }
+    .fee-row .value { font-weight: 600; color: #B45309; }
+    .fee-row.total { border-top: 1px solid #FDE68A; margin-top: 8px; padding-top: 12px; }
+    .fee-row.total .value { font-size: 16px; color: #ef4444; }
+    .fee-warning { font-size: 12px; color: #dc2626; margin-top: 8px; padding: 10px; background: #fef2f2; border-radius: 8px; line-height: 1.5; }
+    .modal-textarea { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; resize: vertical; min-height: 80px; outline: none; margin-bottom: 16px; }
+    .modal-textarea:focus { border-color: var(--primary); }
+    .modal-actions { display: flex; gap: 12px; }
+    .modal-btn { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+    .modal-btn.confirm { background: #ef4444; color: white; }
+    .modal-btn.confirm:hover { background: #dc2626; }
+    .modal-btn.confirm:disabled { background: #fca5a5; cursor: not-allowed; }
+    .modal-btn.cancel { background: #f3f4f6; color: var(--text-sub); }
+    .modal-btn.cancel:hover { background: #e5e7eb; }
+    .countdown-text { font-size: 13px; color: #f59e0b; font-weight: 500; }
+    .countdown-num { display: inline-block; width: 24px; height: 24px; background: #f59e0b; color: white; border-radius: 6px; text-align: center; line-height: 24px; font-size: 14px; font-weight: 700; margin: 0 4px; }
+    .cancel-modal-warning { font-size: 13px; color: #ef4444; margin-bottom: 16px; padding: 12px; background: #fef2f2; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="page-wrap">
+    <h1 class="page-title">我的订单</h1>
+
+    <div class="status-tabs">
+      <div class="status-tab active" data-status="all" onclick="switchTab('all')">全部</div>
+      <div class="status-tab" data-status="pending" onclick="switchTab('pending')">待支付</div>
+      <div class="status-tab" data-status="paid" onclick="switchTab('paid')">已支付</div>
+      <div class="status-tab" data-status="refunded" onclick="switchTab('refunded')">已退订</div>
+      <div class="status-tab" data-status="cancelled" onclick="switchTab('cancelled')">已取消</div>
+    </div>
+
+    <div id="orderList"></div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let _currentUser = null;
+    let _currentStatus = 'all';
+
+    async function init() {
+      _currentUser = await Auth.getUser();
+      if (!_currentUser) {
+        window.location.href = '/login.html?redirect=/orders.html';
+        return;
+      }
+      renderNavbar(_currentUser);
+      loadOrders();
+    }
+
+    async function loadOrders() {
+      const url = '/api/orders?status=' + _currentStatus;
+      const data = await Auth.apiGet(url);
+      if (!data || data.code !== 0) {
+        document.getElementById('orderList').innerHTML = '<div class="empty-state"><div class="emoji">⚠️</div><div class="text">加载失败</div></div>';
+        return;
+      }
+
+      const orders = data.data.list;
+      if (orders.length === 0) {
+        document.getElementById('orderList').innerHTML = `
+          <div class="empty-state">
+            <div class="emoji">📦</div>
+            <div class="text">暂无订单</div>
+            <a href="/" style="display:inline-block;margin-top:16px;padding:10px 24px;border-radius:20px;background:linear-gradient(135deg,var(--primary),var(--accent));color:white;text-decoration:none;font-size:14px;font-weight:600;">去生成行程</a>
+          </div>
+        `;
+        return;
+      }
+
+      const typeMap = { flight: '✈️ 机票', train: '🚄 高铁/火车', bus: '🚌 城际巴士', hotel: '🏨 酒店', taxi: '🚕 打车' };
+      const statusMap = { pending: '待支付', paid: '已支付', refunded: '已退订', cancelled: '已取消' };
+
+      document.getElementById('orderList').innerHTML = orders.map(o => `
+        <div class="order-card">
+          <div class="order-top">
+            <div>
+              <span class="order-type-badge ${o.item_type}">${typeMap[o.item_type] || o.item_type}</span>
+              <div class="order-no">${o.order_no}</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="order-status ${o.status}">${statusMap[o.status] || o.status}</span>
+              <div class="order-date" style="margin-top:4px;">${o.created_at}</div>
+            </div>
+          </div>
+          <div class="order-name">${escapeHtml(o.item_name)}</div>
+          ${o.item_detail ? `<div class="order-detail">${escapeHtml(o.item_detail)}</div>` : ''}
+          ${o.travel_date ? `<div class="order-detail">📅 出行日期：${o.travel_date}</div>` : ''}
+          ${o.pay_method ? `<div class="order-detail">💳 支付方式：${o.pay_method === 'wechat' ? '微信支付' : o.pay_method === 'alipay' ? '支付宝' : o.pay_method === 'admin_skip' ? '管理员免支付' : o.pay_method === 'platform' ? '龙虾平台支付' : o.pay_method}</div>` : ''}
+          ${o.refund_reason ? `<div class="order-detail" style="color:#ef4444;">退订原因：${escapeHtml(o.refund_reason)}</div>` : ''}
+          <div class="order-bottom">
+            <div class="order-price">¥${o.total_amount}<small>（${o.quantity}×¥${o.unit_price}）</small></div>
+            <div class="order-actions">
+              ${o.itinerary_id ? `<a href="/trip-detail.html?id=${o.itinerary_id}" class="btn-sm detail">🧳 查看行程</a>` : ''}
+              ${o.status === 'pending' ? `
+                <a href="/payment.html?order_id=${o.id}" class="btn-sm pay">去支付</a>
+                <button class="btn-sm cancel" onclick="showCancelModal(${o.id})">取消</button>
+              ` : ''}
+              ${o.status === 'paid' ? `
+                <button class="btn-sm refund" onclick="showRefundModal(${o.id})">退订</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function switchTab(status) {
+      _currentStatus = status;
+      document.querySelectorAll('.status-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.status === status);
+      });
+      loadOrders();
+    }
+
+    async function showRefundModal(orderId) {
+      closeModal();
+
+      const loadingOverlay = document.createElement('div');
+      loadingOverlay.className = 'modal-overlay';
+      loadingOverlay.innerHTML = `
+        <div class="modal-content" style="text-align:center;">
+          <div style="font-size:32px;margin-bottom:12px;">🔄</div>
+          <div style="font-size:14px;color:var(--text-sub);">正在查询退改费用...</div>
+        </div>
+      `;
+      document.body.appendChild(loadingOverlay);
+
+      let feeData = null;
+      try {
+        const data = await Auth.apiPost('/api/orders/' + orderId + '/refund-fee', {});
+        if (data && data.code === 0) {
+          feeData = data.data;
+        }
+      } catch (e) {
+        console.error('查询退改费用失败:', e);
+      }
+
+      loadingOverlay.remove();
+
+      if (!feeData) {
+        showToast('查询退改费用失败', 'error');
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-title">📋 退订确认</div>
+          <div class="modal-subtitle">${feeData.type_name}退订费用明细</div>
+          <div class="modal-body">
+            <div class="fee-card">
+              <div class="fee-row"><span class="label">订单金额</span><span class="value">¥${feeData.original_amount.toFixed(2)}</span></div>
+              <div class="fee-row"><span class="label">退改手续费</span><span class="value">-¥${feeData.refund_fee.toFixed(2)}</span></div>
+              <div class="fee-row total"><span class="label">实际退款金额</span><span class="value">¥${feeData.refund_amount.toFixed(2)}</span></div>
+            </div>
+            <div class="fee-warning">
+              ⚠️ 退订后，退款将在1-3个工作日内原路返回。<br>
+              请确认您已了解退改规则和费用扣除。
+            </div>
+            <textarea id="refundReason" class="modal-textarea" placeholder="请输入退订原因（选填）"></textarea>
+            <div class="countdown-text" id="countdownText">请停留 <span class="countdown-num" id="countdownNum">3</span> 秒确认已知悉退订扣除费用</div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+            <button class="modal-btn confirm" id="refundConfirmBtn" disabled onclick="confirmRefund(${orderId})">确认退订</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      let countdown = 3;
+      const timer = setInterval(() => {
+        countdown--;
+        const numEl = document.getElementById('countdownNum');
+        if (numEl) numEl.textContent = countdown;
+        if (countdown <= 0) {
+          clearInterval(timer);
+          const btn = document.getElementById('refundConfirmBtn');
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = '确认退订';
+          }
+          const text = document.getElementById('countdownText');
+          if (text) text.textContent = '您已确认已知悉退订扣除费用';
+        }
+      }, 1000);
+    }
+
+    function showCancelModal(orderId) {
+      closeModal();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-title">❌ 取消订单</div>
+          <div class="modal-subtitle">确认取消此待支付订单</div>
+          <div class="modal-body">
+            <div class="cancel-modal-warning">
+              取消后订单将无法继续支付，请谨慎操作。<br>
+              如果订单已在龙虾平台创建，也会同步取消。
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+            <button class="modal-btn confirm" onclick="confirmCancel(${orderId})">确认取消</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    function closeModal() {
+      const overlay = document.querySelector('.modal-overlay');
+      if (overlay) overlay.remove();
+    }
+
+    async function confirmRefund(orderId) {
+      const reason = document.getElementById('refundReason')?.value.trim() || '';
+      const btn = document.getElementById('refundConfirmBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = '处理中...';
+      }
+
+      const data = await Auth.apiPost('/api/orders/' + orderId + '/refund', { reason });
+      closeModal();
+      if (data && data.code === 0) {
+        showToast('退订成功', 'success');
+        loadOrders();
+      } else {
+        showToast(data?.message || '退订失败', 'error');
+      }
+    }
+
+    async function confirmCancel(orderId) {
+      const data = await Auth.apiPost('/api/orders/' + orderId + '/cancel', {});
+      closeModal();
+      if (data && data.code === 0) {
+        showToast('订单已取消', 'success');
+        loadOrders();
+      } else {
+        showToast(data?.message || '取消失败', 'error');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

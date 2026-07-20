@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 600px; margin: 0 auto; padding: 24px 20px 60px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .profile-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 28px 32px; margin-bottom: 20px; }
+    .avatar-section { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .avatar-circle { width: 60px; height: 60px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 24px; font-weight: 700; }
+    .section-label { font-size: 13px; font-weight: 600; color: var(--text-sub);
+      margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .color-preview { display: inline-block; width: 24px; height: 24px; border-radius: 6px;
+      vertical-align: middle; margin-right: 8px; border: 2px solid white; box-shadow: 0 0 0 1px var(--border); }
+    .btn-save { margin-top: 16px; width: 100%; padding: 14px; font-size: 15px; }
+    .tab-bar { display: flex; gap: 0; margin-bottom: 20px; background: white;
+      border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+    .tab { flex: 1; padding: 12px; text-align: center; font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.3s; color: var(--text-sub); }
+    .tab.active { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .form-tip { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <h1 class="page-title">个人中心</h1>
+    <div class="tab-bar">
+      <div class="tab active" onclick="switchTab('account')">账号信息</div>
+      <div class="tab" onclick="switchTab('password')">修改密码</div>
+      <div class="tab" onclick="switchTab('travel')">出行信息</div>
+    </div>
+
+    <!-- 账号信息 -->
+    <div id="tab-account" class="tab-content active">
+      <div class="profile-card">
+        <div class="avatar-section">
+          <div class="avatar-circle" id="avatarLetter">U</div>
+          <div>
+            <div style="font-size:16px;font-weight:600;" id="displayUsername">加载中</div>
+            <div style="font-size:13px;color:var(--text-sub);" id="displayEmail"></div>
+          </div>
+        </div>
+        <div class="section-label">基本资料</div>
+        <div class="form-group">
+          <label class="form-label">昵称</label>
+          <input type="text" class="form-input" id="nickname" placeholder="设置昵称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">手机号</label>
+          <input type="text" class="form-input" id="phone" placeholder="手机号（选填）">
+        </div>
+        <div class="section-label" style="margin-top:24px;">应援设置</div>
+        <div class="form-group">
+          <label class="form-label">应援色 <span class="color-preview" id="colorPreview" style="background:#7C3AED;"></span></label>
+          <input type="color" class="form-input" id="fan_color" value="#7C3AED" style="height:48px;padding:4px;cursor:pointer;">
+        </div>
+        <div class="form-group">
+          <label class="form-label">粉丝名</label>
+          <input type="text" class="form-input" id="fan_name" placeholder="如：星星 / 深粉">
+        </div>
+        <div class="form-group">
+          <label class="form-label">应援口号</label>
+          <input type="text" class="form-input" id="fan_slogan" placeholder="如：陪他走花路">
+        </div>
+        <button class="btn-primary btn-save" onclick="saveAccount()">保存账号信息</button>
+      </div>
+    </div>
+
+    <!-- 修改密码 -->
+    <div id="tab-password" class="tab-content">
+      <div class="profile-card">
+        <div class="form-group">
+          <label class="form-label">原密码</label>
+          <input type="password" class="form-input" id="old_password" placeholder="输入当前密码">
+        </div>
+        <div class="form-group">
+          <label class="form-label">新密码</label>
+          <input type="password" class="form-input" id="new_password" placeholder="至少6位" minlength="6">
+        </div>
+        <button class="btn-primary btn-save" onclick="changePassword()">修改密码</button>
+      </div>
+    </div>
+
+    <!-- 出行信息 -->
+    <div id="tab-travel" class="tab-content">
+      <div class="profile-card">
+        <div class="section-label">出行信息（用于下单时自动填入）</div>
+        <div class="form-tip" style="margin-bottom:16px;">填写一次后，购买机票/酒店时将自动带入，无需重复输入。</div>
+        <div class="form-group">
+          <label class="form-label">真实姓名</label>
+          <input type="text" class="form-input" id="travelRealName" placeholder="真实姓名，用于乘机/入住">
+        </div>
+        <div class="form-group">
+          <label class="form-label">身份证号</label>
+          <input type="text" class="form-input" id="travelIdCard" placeholder="请输入身份证号" maxlength="18">
+        </div>
+        <div class="form-group">
+          <label class="form-label">联系人姓名</label>
+          <input type="text" class="form-input" id="travelContactName" placeholder="请输入联系人姓名">
+        </div>
+        <div class="form-group">
+          <label class="form-label">联系人手机</label>
+          <input type="tel" class="form-input" id="travelContactPhone" placeholder="请输入手机号" maxlength="11">
+        </div>
+        <button class="btn-primary btn-save" onclick="saveTravel()">保存出行信息</button>
+      </div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    let currentUser = null;
+
+    (async function() {
+      currentUser = await initPage();
+      if (!currentUser) {
+        window.location.href = '/login.html?redirect=/profile.html';
+        return;
+      }
+      loadAccount();
+      loadTravel();
+    })();
+
+    function loadAccount() {
+      document.getElementById('displayUsername').textContent = currentUser.username;
+      document.getElementById('displayEmail').textContent = currentUser.email || '';
+      document.getElementById('avatarLetter').textContent = (currentUser.nickname || currentUser.username || 'U')[0].toUpperCase();
+      document.getElementById('nickname').value = currentUser.nickname || '';
+      document.getElementById('phone').value = currentUser.phone || '';
+      document.getElementById('fan_color').value = currentUser.fan_color || '#7C3AED';
+      document.getElementById('colorPreview').style.background = currentUser.fan_color || '#7C3AED';
+      document.getElementById('fan_name').value = currentUser.fan_name || '';
+      document.getElementById('fan_slogan').value = currentUser.fan_slogan || '';
+
+      document.getElementById('fan_color').addEventListener('input', (e) => {
+        document.getElementById('colorPreview').style.background = e.target.value;
+      });
+    }
+
+    function loadTravel() {
+      try {
+        const t = JSON.parse(localStorage.getItem('user_profile') || '{}');
+        if (t.realName) document.getElementById('travelRealName').value = t.realName;
+        if (t.idCard) document.getElementById('travelIdCard').value = t.idCard;
+        if (t.contactName) document.getElementById('travelContactName').value = t.contactName;
+        if (t.contactPhone) document.getElementById('travelContactPhone').value = t.contactPhone;
+      } catch {}
+    }
+
+    async function saveAccount() {
+      const data = await Auth.apiPut('/api/auth/profile', {
+        nickname: document.getElementById('nickname').value.trim(),
+        phone: document.getElementById('phone').value.trim(),
+        fan_color: document.getElementById('fan_color').value,
+        fan_name: document.getElementById('fan_name').value.trim(),
+        fan_slogan: document.getElementById('fan_slogan').value.trim(),
+      });
+      if (data && data.code === 0) {
+        currentUser = data.data;
+        showToast('账号信息已保存', 'success');
+        renderNavbar(currentUser);
+      } else {
+        showToast(data?.message || '保存失败', 'error');
+      }
+    }
+
+    function saveTravel() {
+      const travel = {
+        realName: document.getElementById('travelRealName').value.trim(),
+        idCard: document.getElementById('travelIdCard').value.trim(),
+        contactName: document.getElementById('travelContactName').value.trim(),
+        contactPhone: document.getElementById('travelContactPhone').value.trim(),
+      };
+      localStorage.setItem('user_profile', JSON.stringify(travel));
+      showToast('出行信息已保存，下单时将自动填入', 'success');
+    }
+
+    async function changePassword() {
+      const oldPwd = document.getElementById('old_password').value;
+      const newPwd = document.getElementById('new_password').value;
+      if (!oldPwd || !newPwd) { showToast('请填写完整', 'error'); return; }
+      const data = await Auth.apiPut('/api/auth/password', { old_password: oldPwd, new_password: newPwd });
+      if (data && data.code === 0) {
+        showToast('密码修改成功', 'success');
+        document.getElementById('old_password').value = '';
+        document.getElementById('new_password').value = '';
+      } else {
+        showToast(data?.message || '修改失败', 'error');
+      }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tab).classList.add('active');
+    }
+  </script>
+</body>
+</html>

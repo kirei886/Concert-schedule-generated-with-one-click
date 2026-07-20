@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>留言板 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 700px; margin: 0 auto; padding: 24px 20px 60px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .post-box { background: white; border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px 24px; margin-bottom: 24px; }
+    .post-textarea { width: 100%; min-height: 80px; border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 12px 16px; font-size: 14px; resize: vertical;
+      font-family: inherit; outline: none; transition: border-color 0.3s; }
+    .post-textarea:focus { border-color: var(--primary); }
+    .post-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+    .sticker-row { display: flex; gap: 8px; }
+    .sticker-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--border);
+      background: white; cursor: pointer; font-size: 18px; display: flex; align-items: center;
+      justify-content: center; transition: all 0.3s; }
+    .sticker-btn:hover, .sticker-btn.selected { border-color: var(--primary); background: var(--theme-tint); transform: scale(1.1); }
+    .msg-list { display: flex; flex-direction: column; gap: 16px; }
+    .msg-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; }
+    .msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .msg-avatar { width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px;
+      flex-shrink: 0; }
+    .msg-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+    .msg-author { font-size: 14px; font-weight: 600; }
+    .msg-time { font-size: 11px; color: var(--text-light); }
+    .msg-content { font-size: 14px; line-height: 1.6; color: var(--text-main); margin-bottom: 10px; word-break: break-all; overflow-wrap: break-word; }
+    .msg-sticker { font-size: 28px; margin-bottom: 6px; word-break: break-all; overflow-wrap: break-word; max-height: 80px; overflow: hidden; }
+    .msg-sticker-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-bottom: 6px; display: block; cursor: pointer; object-fit: cover; }
+    .msg-footer { display: flex; gap: 16px; align-items: center; }
+    .msg-action { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-sub);
+      cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: all 0.2s; }
+    .msg-action:hover { background: var(--theme-tint); color: var(--primary); }
+    .msg-action.liked { color: var(--accent); }
+    .reply-list { margin-top: 12px; padding-left: 46px; display: flex; flex-direction: column; gap: 10px; }
+    .reply-item { background: #f8f9fa; border-radius: 10px; padding: 10px 14px; }
+    .reply-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .reply-avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent));
+      display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
+    .reply-name { font-size: 12px; font-weight: 600; }
+    .reply-time { font-size: 10px; color: var(--text-light); }
+    .reply-content { font-size: 13px; color: var(--text-main); }
+    .reply-box { margin-top: 12px; padding-left: 46px; display: none; }
+    .reply-input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px;
+      padding: 8px 12px; font-size: 13px; outline: none; }
+    .reply-input:focus { border-color: var(--primary); }
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--text-light); }
+    .login-prompt { text-align: center; padding: 12px; background: var(--theme-tint); border-radius: 12px;
+      font-size: 13px; color: var(--text-sub); margin-bottom: 16px; }
+    .login-prompt a { color: var(--primary); font-weight: 500; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <h1 class="page-title">留言板</h1>
+    <div id="loginPrompt"></div>
+    <div class="post-box" id="postBox" style="display:none;">
+      <textarea class="post-textarea" id="postContent" placeholder="分享你的演唱会故事、攻略、心情..." maxlength="500"></textarea>
+      <div class="post-actions">
+        <div class="sticker-row" id="stickerRow"></div>
+        <button class="btn-primary" onclick="postMessage()" style="padding:8px 20px;font-size:13px;">发布</button>
+      </div>
+    </div>
+    <div class="msg-list" id="msgList">
+      <div class="empty-state">加载中...</div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    let currentUser = null;
+    let selectedSticker = '';
+    const STICKERS = ['🎵', '🎤', '🌟', '💜', '🔥', '✨', '🎉', '💛'];
+
+    (async function() {
+      currentUser = await initPage();
+      if (currentUser) {
+        document.getElementById('postBox').style.display = 'block';
+        renderStickers();
+      } else {
+        document.getElementById('loginPrompt').innerHTML =
+          '<div class="login-prompt"><a href="/login.html?redirect=/messages.html">登录</a>后即可发帖和互动</div>';
+      }
+      loadMessages();
+    })();
+
+    function renderStickers() {
+      const row = document.getElementById('stickerRow');
+      row.innerHTML = STICKERS.map(s =>
+        `<div class="sticker-btn" data-sticker="${s}" onclick="selectSticker('${s}', this)">${s}</div>`
+      ).join('');
+    }
+
+    function selectSticker(s, el) {
+      if (selectedSticker === s) {
+        selectedSticker = '';
+        el.classList.remove('selected');
+      } else {
+        selectedSticker = s;
+        document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('selected'));
+        el.classList.add('selected');
+      }
+    }
+
+    async function loadMessages() {
+      let data;
+      try {
+        const res = currentUser
+          ? await Auth.apiGet('/api/messages?page=1&limit=50')
+          : await fetch('/api/messages?page=1&limit=50').then(r => r.json());
+        data = res;
+      } catch {
+        data = null;
+      }
+
+      const container = document.getElementById('msgList');
+
+      if (!data || data.code !== 0 || !data.data || !data.data.list || !data.data.list.length) {
+        container.innerHTML = '<div class="empty-state">还没有留言，快来抢沙发！</div>';
+        return;
+      }
+
+      container.innerHTML = data.data.list.map(msg => renderMessage(msg)).join('');
+    }
+
+    function renderSticker(sticker) {
+      if (!sticker) return '';
+      const s = sticker.trim();
+      if (s.startsWith('data:image') || s.startsWith('http://') || s.startsWith('https://')) {
+        return `<img class="msg-sticker-img" src="${escapeHtml(s)}" alt="图片" onclick="window.open('${escapeHtml(s)}','_blank')">`;
+      }
+      return `<div class="msg-sticker">${escapeHtml(s)}</div>`;
+    }
+
+    function renderMessage(msg) {
+      const avatar = msg.avatar_url
+        ? `<img src="${escapeHtml(msg.avatar_url)}">`
+        : escapeHtml((msg.nickname || 'U')[0].toUpperCase());
+
+      const replies = msg.replies ? msg.replies.map(r => {
+        const rAvatar = r.avatar_url
+          ? `<img src="${escapeHtml(r.avatar_url)}">`
+          : escapeHtml((r.nickname || 'U')[0].toUpperCase());
+        return `
+          <div class="reply-item">
+            <div class="reply-header">
+              <div class="reply-avatar">${rAvatar}</div>
+              <span class="reply-name">${escapeHtml(r.nickname || '匿名')}</span>
+              <span class="reply-time">${formatRelativeTime(r.created_at)}</span>
+            </div>
+            <div class="reply-content">${escapeHtml(r.content)}</div>
+          </div>
+        `;
+      }).join('') : '';
+
+      return `
+        <div class="msg-card">
+          <div class="msg-header">
+            <div class="msg-avatar">${avatar}</div>
+            <div>
+              <div class="msg-author">${escapeHtml(msg.nickname || '匿名用户')}</div>
+              <div class="msg-time">${formatRelativeTime(msg.created_at)}</div>
+            </div>
+          </div>
+          ${renderSticker(msg.sticker)}
+          <div class="msg-content">${escapeHtml(msg.content)}</div>
+          <div class="msg-footer">
+            <div class="msg-action ${msg.liked ? 'liked' : ''}" onclick="toggleLike(${msg.id}, ${!msg.liked})">
+              ${msg.liked ? '♥' : '♡'} ${msg.likes_count}
+            </div>
+            ${currentUser ? `<div class="msg-action" onclick="toggleReply(${msg.id})">回复</div>` : ''}
+            ${currentUser && (currentUser.id === msg.user_id || currentUser.role === 'admin')
+              ? `<div class="msg-action" style="margin-left:auto;color:#ef4444;" onclick="deleteMessage(${msg.id})">删除</div>` : ''}
+          </div>
+          ${replies ? `<div class="reply-list">${replies}</div>` : ''}
+          <div class="reply-box" id="replyBox-${msg.id}">
+            <input type="text" class="reply-input" id="replyInput-${msg.id}" placeholder="回复 ${escapeHtml(msg.nickname || '匿名')}..."
+              onkeypress="if(event.key==='Enter')submitReply(${msg.id})">
+          </div>
+        </div>
+      `;
+    }
+
+    async function postMessage() {
+      const content = document.getElementById('postContent').value.trim();
+      if (!content) { showToast('请输入留言内容', 'error'); return; }
+
+      const data = await Auth.apiPost('/api/messages', { content, sticker: selectedSticker });
+      if (data && data.code === 0) {
+        document.getElementById('postContent').value = '';
+        selectedSticker = '';
+        document.querySelectorAll('.sticker-btn').forEach(b => b.classList.remove('selected'));
+        showToast('发布成功', 'success');
+        loadMessages();
+      }
+    }
+
+    function toggleReply(id) {
+      const box = document.getElementById('replyBox-' + id);
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      if (box.style.display === 'block') {
+        document.getElementById('replyInput-' + id).focus();
+      }
+    }
+
+    async function submitReply(id) {
+      const input = document.getElementById('replyInput-' + id);
+      const content = input.value.trim();
+      if (!content) return;
+
+      const data = await Auth.apiPost('/api/messages', { content, parent_id: id });
+      if (data && data.code === 0) {
+        input.value = '';
+        toggleReply(id);
+        loadMessages();
+      }
+    }
+
+    async function toggleLike(id, isLiking) {
+      if (isLiking) {
+        await Auth.apiPost(`/api/messages/${id}/like`);
+      } else {
+        await Auth.apiDelete(`/api/messages/${id}/like`);
+      }
+      loadMessages();
+    }
+
+    async function deleteMessage(id) {
+      if (!confirm('确定删除这条留言吗？')) return;
+      const data = await Auth.apiDelete(`/api/messages/${id}`);
+      if (data && data.code === 0) {
+        showToast('已删除', 'success');
+        loadMessages();
+      }
+    }
+
+    function formatRelativeTime(timeStr) {
+      if (!timeStr) return '';
+      const d = new Date(timeStr.replace(' ', 'T'));
+      if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 0) return '刚刚';
+      if (diff < 60) return '刚刚';
+      if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+      if (diff < 86400) return Math.floor(diff / 3600) + '小时前';
+      if (diff < 604800) return Math.floor(diff / 86400) + '天前';
+      return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+  </script>
+</body>
+</html>

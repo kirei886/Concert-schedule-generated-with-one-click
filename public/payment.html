@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>支付订单 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    body { background: var(--bg-gradient); }
+    .pay-container { max-width: 480px; margin: 0 auto; padding: 80px 20px 40px; }
+    .pay-card { background: white; border-radius: 20px; box-shadow: var(--shadow); overflow: hidden; }
+    .pay-header { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; padding: 32px 24px; text-align: center; }
+    .pay-amount { font-size: 40px; font-weight: 800; margin-top: 8px; }
+    .pay-amount small { font-size: 18px; font-weight: 400; }
+    .pay-body { padding: 24px; }
+    .order-info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .order-info-row:last-child { border-bottom: none; }
+    .order-info-row .label { color: var(--text-sub); }
+    .order-info-row .value { color: var(--text-main); font-weight: 500; text-align: right; max-width: 60%; word-break: break-all; }
+    .pay-methods { margin-top: 24px; }
+    .pay-methods h3 { font-size: 14px; color: var(--text-sub); margin-bottom: 12px; }
+    .pay-method { display: flex; align-items: center; gap: 12px; padding: 16px; border: 2px solid var(--border); border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+    .pay-method:hover { border-color: var(--primary); }
+    .pay-method.selected { border-color: var(--primary); background: rgba(124,58,237,0.04); }
+    .pay-method-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .pay-method-icon.wechat { background: #dcfce7; }
+    .pay-method-icon.alipay { background: #dbeafe; }
+    .pay-method-name { font-size: 15px; font-weight: 600; flex: 1; }
+    .pay-method-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); }
+    .pay-method.selected .pay-method-check { border-color: var(--primary); background: var(--primary); }
+    .pay-method.selected .pay-method-check::after { content: '✓'; color: white; font-size: 12px; display: flex; align-items: center; justify-content: center; height: 100%; }
+    .pay-btn { width: 100%; padding: 16px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 24px; transition: all 0.3s; }
+    .pay-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+    .pay-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .admin-skip-banner { background: linear-gradient(135deg, #FEF3C7, #FDE68A); border: 1px solid #F59E0B; border-radius: 12px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+    .admin-skip-banner .icon { font-size: 24px; }
+    .admin-skip-banner .text { font-size: 13px; color: #92400E; line-height: 1.5; }
+    .platform-pay-banner { background: linear-gradient(135deg, #DBEAFE, #BFDBFE); border: 1px solid #3B82F6; border-radius: 12px; padding: 16px; margin-top: 16px; display: flex; align-items: center; gap: 12px; }
+    .platform-pay-banner .icon { font-size: 24px; }
+    .platform-pay-banner .text { font-size: 13px; color: #1E40AF; line-height: 1.5; }
+    .pay-success-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .pay-success-modal { background: white; border-radius: 24px; padding: 40px 32px; text-align: center; max-width: 360px; width: 90%; animation: popIn 0.4s ease; }
+    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .success-icon { width: 72px; height: 72px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 16px; }
+    .success-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .success-desc { font-size: 14px; color: var(--text-sub); margin-bottom: 24px; }
+    .success-btn { padding: 12px 32px; border: none; border-radius: 24px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; font-size: 15px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+    .success-btn.secondary { background: white; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px; }
+    .success-btns { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .pay-loading { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-checking { font-size: 13px; color: var(--text-sub); text-align: center; margin-top: 12px; }
+    .status-checking .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--text-light); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="pay-container">
+    <div class="pay-card" id="payCard">
+      <div class="pay-header">
+        <div style="font-size: 14px; opacity: 0.9;">应付金额</div>
+        <div class="pay-amount">¥<span id="payAmount">0</span><small>.00</small></div>
+      </div>
+      <div class="pay-body">
+        <div id="orderInfo"></div>
+        <div class="pay-methods" id="payMethods" style="display:none;">
+          <h3>选择支付方式</h3>
+          <div class="pay-method selected" data-method="wechat" onclick="selectPayMethod('wechat')">
+            <div class="pay-method-icon wechat">💚</div>
+            <div class="pay-method-name">微信支付</div>
+            <div class="pay-method-check"></div>
+          </div>
+          <div class="pay-method" data-method="alipay" onclick="selectPayMethod('alipay')">
+            <div class="pay-method-icon alipay">💙</div>
+            <div class="pay-method-name">支付宝</div>
+            <div class="pay-method-check"></div>
+          </div>
+        </div>
+        <div id="adminBanner" style="display:none;"></div>
+        <div id="platformBanner" style="display:none;"></div>
+        <div id="statusChecking" class="status-checking" style="display:none;">
+          <span class="spinner"></span>正在检查支付状态...
+        </div>
+        <button class="pay-btn" id="payBtn" onclick="doPay()" disabled>
+          <span id="payBtnText">确认支付</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js"></script>
+  <script>
+    let _order = null;
+    let _currentUser = null;
+    let _selectedMethod = 'wechat';
+    let _statusPollTimer = null;
+
+    async function init() {
+      _currentUser = await Auth.getUser();
+      if (!_currentUser) {
+        window.location.href = '/login.html?redirect=/orders.html';
+        return;
+      }
+      renderNavbar(_currentUser);
+
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get('order_id');
+      if (!orderId) {
+        document.getElementById('payCard').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-sub);">未找到订单信息</div>';
+        return;
+      }
+
+      const data = await Auth.apiGet('/api/orders/' + orderId);
+      if (!data || data.code !== 0) {
+        document.getElementById('payCard').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-sub);">订单加载失败</div>';
+        return;
+      }
+
+      _order = data.data;
+      if (_order.status !== 'pending') {
+        window.location.href = '/orders.html';
+        return;
+      }
+
+      renderOrder();
+    }
+
+    function renderOrder() {
+      const typeMap = { flight: '✈️ 机票', train: '🚄 高铁/火车', bus: '🚌 城际巴士', hotel: '🏨 酒店', taxi: '🚕 打车' };
+      const typeName = typeMap[_order.item_type] || _order.item_type;
+      let snapshot = _order.parsed_snapshot || {};
+      let detailHtml = '';
+
+      document.getElementById('payAmount').textContent = _order.total_amount;
+      document.getElementById('orderInfo').innerHTML = `
+        <div class="order-info-row"><span class="label">订单编号</span><span class="value" style="font-size:12px;">${_order.order_no}</span></div>
+        <div class="order-info-row"><span class="label">商品类型</span><span class="value">${typeName}</span></div>
+        <div class="order-info-row"><span class="label">商品名称</span><span class="value">${escapeHtml(_order.item_name)}</span></div>
+        <div class="order-info-row"><span class="label">数量</span><span class="value">${_order.quantity}</span></div>
+        <div class="order-info-row"><span class="label">单价</span><span class="value">¥${_order.unit_price}</span></div>
+        ${_order.travel_date ? `<div class="order-info-row"><span class="label">出行日期</span><span class="value">${_order.travel_date}</span></div>` : ''}
+        ${_order.item_detail ? `<div class="order-info-row"><span class="label">详细信息</span><span class="value" style="font-size:12px;">${escapeHtml(_order.item_detail)}</span></div>` : ''}
+      `;
+
+      if (_order.pay_url) {
+        document.getElementById('payMethods').style.display = 'none';
+        document.getElementById('adminBanner').style.display = 'none';
+        document.getElementById('platformBanner').style.display = 'block';
+        document.getElementById('platformBanner').innerHTML = `
+          <div class="platform-pay-banner">
+            <div class="icon">💳</div>
+            <div class="text">将跳转至龙虾平台进行真实支付<br>支付完成后请返回查看订单状态</div>
+          </div>
+        `;
+        document.getElementById('payBtnText').textContent = '去龙虾平台支付';
+      } else if (_currentUser.role === 'admin') {
+        document.getElementById('payMethods').style.display = 'none';
+        document.getElementById('adminBanner').style.display = 'block';
+        document.getElementById('adminBanner').innerHTML = `
+          <div class="admin-skip-banner">
+            <div class="icon">🔑</div>
+            <div class="text">管理员账号，可跳过支付环节<br>点击下方按钮直接完成订单</div>
+          </div>
+        `;
+        document.getElementById('payBtnText').textContent = '管理员免支付完成';
+      } else {
+        document.getElementById('payMethods').style.display = 'block';
+      }
+      document.getElementById('payBtn').disabled = false;
+    }
+
+    function selectPayMethod(method) {
+      _selectedMethod = method;
+      document.querySelectorAll('.pay-method').forEach(el => {
+        el.classList.toggle('selected', el.dataset.method === method);
+      });
+    }
+
+    async function doPay() {
+      const btn = document.getElementById('payBtn');
+      btn.disabled = true;
+      document.getElementById('payBtnText').innerHTML = '<span class="pay-loading"></span> 处理中...';
+
+      if (_order.pay_url) {
+        const data = await Auth.apiPost('/api/orders/' + _order.id + '/pay', {});
+        if (data && data.code === 0 && data.data && data.data.pay_url) {
+          window.open(data.data.pay_url, '_blank');
+          document.getElementById('payBtnText').textContent = '支付窗口已打开';
+          document.getElementById('statusChecking').style.display = 'block';
+          startStatusPolling();
+        } else {
+          btn.disabled = false;
+          document.getElementById('payBtnText').textContent = '去龙虾平台支付';
+          showToast(data?.message || '获取支付链接失败', 'error');
+        }
+        return;
+      }
+
+      const data = await Auth.apiPost('/api/orders/' + _order.id + '/pay', {
+        pay_method: _selectedMethod
+      });
+
+      if (data && data.code === 0) {
+        showSuccess();
+      } else {
+        btn.disabled = false;
+        document.getElementById('payBtnText').textContent = '确认支付';
+        showToast(data?.message || '支付失败', 'error');
+      }
+    }
+
+    function startStatusPolling() {
+      _statusPollTimer = setInterval(async () => {
+        try {
+          const data = await Auth.apiPost('/api/orders/' + _order.id + '/sync-status', {});
+          if (data && data.code === 0 && data.data) {
+            const order = data.data;
+            if (order.status !== 'pending') {
+              clearInterval(_statusPollTimer);
+              if (order.status === 'paid') {
+                showSuccess();
+              } else {
+                showToast('支付状态已更新，请查看订单', 'success');
+                setTimeout(() => { window.location.href = '/orders.html'; }, 1500);
+              }
+            }
+          }
+        } catch (e) {
+          console.log('轮询订单状态失败:', e);
+        }
+      }, 5000);
+    }
+
+    function showSuccess() {
+      if (_statusPollTimer) clearInterval(_statusPollTimer);
+      const itineraryId = _order && _order.itinerary_id;
+      const tripBtn = itineraryId
+        ? `<a href="/trip-detail.html?id=${itineraryId}" class="success-btn secondary">🧳 查看我的行程</a>`
+        : '';
+      const overlay = document.createElement('div');
+      overlay.className = 'pay-success-overlay';
+      overlay.innerHTML = `
+        <div class="pay-success-modal">
+          <div class="success-icon">✅</div>
+          <div class="success-title">支付成功</div>
+          <div class="success-desc">订单已完成支付<br>已自动保存关联行程${tripBtn ? '，可随时查看' : '，可在"我的订单"中查看'}</div>
+          <div class="success-btns">
+            <a href="/orders.html" class="success-btn">查看我的订单</a>
+            ${tripBtn}
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (_statusPollTimer) clearInterval(_statusPollTimer);
+    });
+
+    init();
+  </script>
+</body>
+</html>
