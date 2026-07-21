@@ -1,136 +1,168 @@
 /**
- * 留言路由：发帖/回复/点赞/列表
+ * 留言路由 - Workers 版本
  */
-const express = require('express');
-const { body, validationResult } = require('express-validator');
-const db = require('../db');
-const { authRequired, authOptional } = require('../middleware/auth');
 
-const router = express.Router();
+import { Router } from 'itty-router';
+import { authRequired, authOptional } from '../middleware/auth.js';
+import { jsonResponse, errorResponse, successResponse } from '../utils/db.js';
 
-router.get('/', authOptional, (req, res) => {
-  const { page = 1, limit = 20, concert_id, artist, tag, top } = req.query;
-  const pageNum = Math.max(1, parseInt(page));
-  const limitNum = Math.min(50, parseInt(limit) || 20);
-  const offset = (pageNum - 1) * limitNum;
+const router = Router({ base: '/api/messages' });
 
-  // 构建查询条件
-  let whereClause = 'WHERE m.parent_id IS NULL';
-  const params = [];
+// 获取留言列表
+router.get('/', async (request) => {
+  await authOptional(request);
 
-  if (concert_id) {
-    whereClause += ' AND m.concert_id = ?';
-    params.push(concert_id);
-  } else if (artist) {
-    whereClause += ' AND m.artist = ?';
-    params.push(artist);
-  }
+  try {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const artist = url.searchParams.get('artist');
+    const tag = url.searchParams.get('tag');
+    const offset = (page - 1) * limit;
 
-  if (tag && tag !== 'all') {
-    whereClause += ' AND m.tag = ?';
-    params.push(tag);
-  }
-
-  // 排序：top=1 按点赞数排序（热门），否则按时间排序
-  const orderBy = top === '1' ? 'ORDER BY m.likes_count DESC, m.created_at DESC' : 'ORDER BY m.created_at DESC';
-
-  const messages = db.prepare(`
-    SELECT m.*, u.nickname, u.avatar_url
-    FROM messages m
-    JOIN users u ON m.user_id = u.id
-    ${whereClause}
-    ${orderBy}
-    LIMIT ? OFFSET ?
-  `).all(...params, limitNum, offset);
-
-  for (const msg of messages) {
-    msg.replies = db.prepare(`
-      SELECT m.*, u.nickname, u.avatar_url
+    let sql = `
+      SELECT m.*, u.username, u.nickname, u.avatar_url,
+             (SELECT COUNT(*) FROM message_likes WHERE message_id = m.id) as likes_count
       FROM messages m
-      JOIN users u ON m.user_id = u.id
-      WHERE m.parent_id = ?
-      ORDER BY m.created_at ASC
-    `).all(msg.id);
+      LEFT JOIN users u ON m.user_id = u.id
+      WHERE m.parent_id IS NULL
+    `;
+    const params = [];
 
-    if (req.user) {
-      msg.liked = !!db.prepare('SELECT id FROM message_likes WHERE message_id = ? AND user_id = ?').get(msg.id, req.user.id);
-      for (const reply of msg.replies) {
-        reply.liked = !!db.prepare('SELECT id FROM message_likes WHERE message_id = ? AND user_id = ?').get(reply.id, req.user.id);
-      }
-    } else {
-      msg.liked = false;
-      for (const reply of msg.replies) {
-        reply.liked = false;
-      }
+    if (artist) {
+      sql += ' AND m.artist = ?';
+      params.push(artist);
     }
-  }
 
-  // 统计总数
-  const totalQuery = db.prepare(`SELECT COUNT(*) as c FROM messages m ${whereClause}`);
-  const total = totalQuery.get(...params).c;
-  res.json({ code: 0, data: { list: messages, total, page: pageNum, limit: limitNum } });
+    if (tag) {
+      sql += ' AND m.tag = ?';
+      params.push(tag);
+    }
+
+    sql += ' ORDER BY m.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const stmt = request.env.DB.prepare(sql);
+    params.forEach(p => stmt.bind(p));
+    const messages = await stmt.all();
+
+    // 获取每条留言的回复
+    const messagesWithReplies = await Promise.all(
+      (messages.results || []).map(async (msg) => {
+        const replies = await request.env.DB.prepare(`
+          SELECT m.*, u.username, u.nickname, u.avatar_url
+          FROM messages m
+          LEFT JOIN users u ON m.user_id = u.id
+          WHERE m.parent_id = ?
+          ORDER BY m.created_at ASC
+        `).bind(msg.id).all();
+
+        return { ...msg, replies: replies.results || [] };
+      })
+    );
+
+    return successResponse({
+      messages: messagesWithReplies,
+      pagination: { page, limit, total: messages.results?.length || 0 }
+    });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    return errorResponse('获取留言失败', 50001, 500);
+  }
 });
 
-router.post('/', authRequired,
-  [body('content').notEmpty().withMessage('留言内容不能为空')],
-  (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ code: 400, message: errors.array()[0].msg, data: null });
+// 创建留言
+router.post('/', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
+  }
+
+  try {
+    const body = await request.json();
+    const { parent_id = null, concert_id = null, artist = '', tag = '', content, sticker = '' } = body;
+
+    if (!content || content.trim().length === 0) {
+      return errorResponse('留言内容不能为空', 40001, 400);
     }
 
-    const { content, sticker, parent_id, concert_id, artist, tag } = req.body;
-    const result = db.prepare(`
+    const result = await request.env.DB.prepare(`
       INSERT INTO messages (user_id, parent_id, concert_id, artist, tag, content, sticker)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(req.user.id, parent_id || null, concert_id || null, artist || '', tag || '', content, sticker || '');
+    `).bind(request.user.id, parent_id, concert_id, artist, tag, content, sticker).run();
 
-    const msg = db.prepare(`
-      SELECT m.*, u.nickname, u.avatar_url
-      FROM messages m JOIN users u ON m.user_id = u.id
-      WHERE m.id = ?
-    `).get(result.lastInsertRowid);
-    msg.liked = false;
-    msg.replies = [];
-
-    res.json({ code: 0, data: msg });
+    return successResponse({ id: result.meta.last_row_id }, '发布成功');
+  } catch (error) {
+    console.error('Create message error:', error);
+    return errorResponse('发布留言失败', 50001, 500);
   }
-);
-
-router.delete('/:id', authRequired, (req, res) => {
-  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(req.params.id);
-  if (!msg) {
-    return res.status(404).json({ code: 404, message: '留言不存在', data: null });
-  }
-  if (msg.user_id !== req.user.id && req.user.role !== 'admin') {
-    return res.status(403).json({ code: 403, message: '无权删除', data: null });
-  }
-  db.prepare('DELETE FROM messages WHERE id = ?').run(req.params.id);
-  res.json({ code: 0, message: '删除成功' });
 });
 
-router.post('/:id/like', authRequired, (req, res) => {
-  const msg = db.prepare('SELECT * FROM messages WHERE id = ?').get(req.params.id);
-  if (!msg) {
-    return res.status(404).json({ code: 404, message: '留言不存在', data: null });
+// 点赞/取消点赞
+router.post('/:id/like', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
-  const existing = db.prepare('SELECT id FROM message_likes WHERE message_id = ? AND user_id = ?').get(req.params.id, req.user.id);
-  if (existing) {
-    return res.json({ code: 0, message: '已点赞过', data: { likes_count: msg.likes_count } });
+
+  try {
+    const { id } = request.params;
+
+    const message = await request.env.DB.prepare('SELECT * FROM messages WHERE id = ?').bind(id).first();
+    if (!message) {
+      return errorResponse('留言不存在', 40401, 404);
+    }
+
+    const existingLike = await request.env.DB.prepare(
+      'SELECT * FROM message_likes WHERE message_id = ? AND user_id = ?'
+    ).bind(id, request.user.id).first();
+
+    if (existingLike) {
+      // 取消点赞
+      await request.env.DB.prepare('DELETE FROM message_likes WHERE id = ?').bind(existingLike.id).run();
+      await request.env.DB.prepare('UPDATE messages SET likes_count = likes_count - 1 WHERE id = ?').bind(id).run();
+      return successResponse({ liked: false }, '已取消点赞');
+    } else {
+      // 点赞
+      await request.env.DB.prepare(`
+        INSERT INTO message_likes (message_id, user_id) VALUES (?, ?)
+      `).bind(id, request.user.id).run();
+      await request.env.DB.prepare('UPDATE messages SET likes_count = likes_count + 1 WHERE id = ?').bind(id).run();
+      return successResponse({ liked: true }, '点赞成功');
+    }
+  } catch (error) {
+    console.error('Like message error:', error);
+    return errorResponse('操作失败', 50001, 500);
   }
-  db.prepare('INSERT INTO message_likes (message_id, user_id) VALUES (?, ?)').run(req.params.id, req.user.id);
-  db.prepare('UPDATE messages SET likes_count = likes_count + 1 WHERE id = ?').run(req.params.id);
-  const updated = db.prepare('SELECT likes_count FROM messages WHERE id = ?').get(req.params.id);
-  res.json({ code: 0, data: { likes_count: updated.likes_count, liked: true } });
 });
 
-router.delete('/:id/like', authRequired, (req, res) => {
-  const result = db.prepare('DELETE FROM message_likes WHERE message_id = ? AND user_id = ?').run(req.params.id, req.user.id);
-  if (result.changes > 0) {
-    db.prepare('UPDATE messages SET likes_count = MAX(0, likes_count - 1) WHERE id = ?').run(req.params.id);
+// 删除留言
+router.delete('/:id', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
-  const updated = db.prepare('SELECT likes_count FROM messages WHERE id = ?').get(req.params.id);
-  res.json({ code: 0, data: { likes_count: updated ? updated.likes_count : 0, liked: false } });
+
+  try {
+    const { id } = request.params;
+
+    const message = await request.env.DB.prepare('SELECT * FROM messages WHERE id = ?').bind(id).first();
+    if (!message) {
+      return errorResponse('留言不存在', 40401, 404);
+    }
+
+    // 只能删除自己的留言或管理员可以删除任何留言
+    if (message.user_id !== request.user.id && request.user.role !== 'admin') {
+      return errorResponse('无权删除此留言', 40301, 403);
+    }
+
+    await request.env.DB.prepare('DELETE FROM messages WHERE id = ?').bind(id).run();
+
+    return successResponse(null, '删除成功');
+  } catch (error) {
+    console.error('Delete message error:', error);
+    return errorResponse('删除留言失败', 50001, 500);
+  }
 });
 
-module.exports = router;
+export default router;

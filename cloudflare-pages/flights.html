@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>机票搜索 - 演唱会行程生成器</title>
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-light: #A78BFA;
+      --accent: #EC4899;
+      --bg-gradient: linear-gradient(180deg, #f0eef5 0%, #f8f9fa 30%, #ffffff 100%);
+      --card-bg: #ffffff;
+      --text-main: #1a1a2e;
+      --text-sub: #6b7280;
+      --border: #e5e7eb;
+      --radius: 16px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      padding: 20px 0 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header .subtitle {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-top: 8px;
+    }
+
+    .search-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .city-select-wrapper {
+      position: relative;
+    }
+    .city-input {
+      padding-right: 40px;
+    }
+    .city-suggestions {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: var(--shadow);
+      z-index: 10;
+      display: none;
+      margin-top: 4px;
+    }
+    .city-suggestions.show {
+      display: block;
+    }
+    .city-suggestion-item {
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .city-suggestion-item:hover {
+      background: #f3f4f6;
+    }
+    .city-suggestion-item .name {
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .city-suggestion-item .code {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-left: 8px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-sub);
+    }
+
+    .error-msg {
+      background: #fee;
+      color: #c00;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .quick-cities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .quick-city-btn {
+      padding: 6px 12px;
+      background: #f3f4f6;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quick-city-btn:hover {
+      background: var(--primary-light);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✈️ 机票搜索</h1>
+      <p class="subtitle">找到最适合你的航班</p>
+    </div>
+
+    <div class="search-card">
+      <div id="errorMsg" class="error-msg" style="display: none;"></div>
+
+      <form id="searchForm">
+        <div class="form-group">
+          <label>出发城市</label>
+          <div class="city-select-wrapper">
+            <input type="text" id="originInput" class="city-input" placeholder="输入城市名称" autocomplete="off" required>
+            <div id="originSuggestions" class="city-suggestions"></div>
+          </div>
+          <div class="quick-cities">
+            <button type="button" class="quick-city-btn" data-city="深圳" data-code="SZX">深圳</button>
+            <button type="button" class="quick-city-btn" data-city="北京" data-code="PEK">北京</button>
+            <button type="button" class="quick-city-btn" data-city="上海" data-code="SHA">上海</button>
+            <button type="button" class="quick-city-btn" data-city="广州" data-code="CAN">广州</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>目的地城市</label>
+          <div class="city-select-wrapper">
+            <input type="text" id="destInput" class="city-input" placeholder="输入城市名称" autocomplete="off" required>
+            <div id="destSuggestions" class="city-suggestions"></div>
+          </div>
+          <div class="quick-cities">
+            <button type="button" class="quick-city-btn" data-city="成都" data-code="CTU">成都</button>
+            <button type="button" class="quick-city-btn" data-city="杭州" data-code="HGH">杭州</button>
+            <button type="button" class="quick-city-btn" data-city="西安" data-code="XIY">西安</button>
+            <button type="button" class="quick-city-btn" data-city="重庆" data-code="CKG">重庆</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>出发日期</label>
+          <input type="date" id="dateInput" required>
+        </div>
+
+        <div class="form-group">
+          <label>舱位等级</label>
+          <select id="cabinInput">
+            <option value="economy">经济舱</option>
+            <option value="business">商务舱</option>
+            <option value="first">头等舱</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-primary" id="searchBtn">
+          🔍 搜索航班
+        </button>
+      </form>
+
+      <div id="loading" class="loading" style="display: none;">
+        正在搜索航班...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://concert-itinerary-api.music-tripay.workers.dev';
+
+    // 城市数据库（三字码映射）
+    const cities = [
+      { name: '北京', code: 'PEK' },
+      { name: '上海', code: 'SHA' },
+      { name: '广州', code: 'CAN' },
+      { name: '深圳', code: 'SZX' },
+      { name: '成都', code: 'CTU' },
+      { name: '重庆', code: 'CKG' },
+      { name: '杭州', code: 'HGH' },
+      { name: '西安', code: 'XIY' },
+      { name: '南京', code: 'NKG' },
+      { name: '武汉', code: 'WUH' },
+      { name: '长沙', code: 'CSX' },
+      { name: '厦门', code: 'XMN' },
+      { name: '青岛', code: 'TAO' },
+      { name: '大连', code: 'DLC' },
+      { name: '沈阳', code: 'SHE' },
+      { name: '昆明', code: 'KMG' },
+      { name: '贵阳', code: 'KWE' },
+      { name: '南昌', code: 'KHN' },
+      { name: '福州', code: 'FOC' },
+      { name: '海口', code: 'HAK' },
+      { name: '三亚', code: 'SYX' },
+      { name: '郑州', code: 'CGO' },
+      { name: '济南', code: 'TNA' },
+      { name: '太原', code: 'TYN' },
+      { name: '石家庄', code: 'SJW' },
+      { name: '哈尔滨', code: 'HRB' },
+      { name: '长春', code: 'CGQ' },
+      { name: '乌鲁木齐', code: 'URC' },
+      { name: '兰州', code: 'LHW' },
+      { name: '银川', code: 'INC' },
+      { name: '西宁', code: 'XNN' },
+      { name: '拉萨', code: 'LXA' },
+      { name: '南宁', code: 'NNG' },
+      { name: '合肥', code: 'HFE' }
+    ];
+
+    let selectedOriginCode = '';
+    let selectedDestCode = '';
+
+    // 城市搜索功能
+    function setupCitySearch(inputId, suggestionsId, onSelect) {
+      const input = document.getElementById(inputId);
+      const suggestions = document.getElementById(suggestionsId);
+
+      input.addEventListener('input', (e) => {
+        const value = e.target.value.trim();
+        if (!value) {
+          suggestions.innerHTML = '';
+          suggestions.classList.remove('show');
+          return;
+        }
+
+        const matches = cities.filter(city => city.name.includes(value) || city.code.toLowerCase().includes(value.toLowerCase()));
+
+        if (matches.length > 0) {
+          suggestions.innerHTML = matches.map(city => `
+            <div class="city-suggestion-item" data-name="${city.name}" data-code="${city.code}">
+              <span class="name">${city.name}</span>
+              <span class="code">(${city.code})</span>
+            </div>
+          `).join('');
+          suggestions.classList.add('show');
+        } else {
+          suggestions.innerHTML = '<div class="city-suggestion-item">无匹配城市</div>';
+          suggestions.classList.add('show');
+        }
+      });
+
+      suggestions.addEventListener('click', (e) => {
+        const item = e.target.closest('.city-suggestion-item');
+        if (item && item.dataset.code) {
+          input.value = item.dataset.name;
+          onSelect(item.dataset.code, item.dataset.name);
+          suggestions.classList.remove('show');
+        }
+      });
+
+      // 点击外部关闭
+      document.addEventListener('click', (e) => {
+        if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+          suggestions.classList.remove('show');
+        }
+      });
+    }
+
+    // 快速选择按钮
+    document.querySelectorAll('.quick-city-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const city = e.target.dataset.city;
+        const code = e.target.dataset.code;
+        const parent = e.target.closest('.form-group');
+        const input = parent.querySelector('input');
+
+        input.value = city;
+        if (parent.querySelector('#originInput')) {
+          selectedOriginCode = code;
+        } else {
+          selectedDestCode = code;
+        }
+      });
+    });
+
+    setupCitySearch('originInput', 'originSuggestions', (code) => {
+      selectedOriginCode = code;
+    });
+
+    setupCitySearch('destInput', 'destSuggestions', (code) => {
+      selectedDestCode = code;
+    });
+
+    // 设置默认日期为明天
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('dateInput').value = tomorrow.toISOString().split('T')[0];
+    document.getElementById('dateInput').min = tomorrow.toISOString().split('T')[0];
+
+    // 搜索表单提交
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+
+      if (!selectedOriginCode) {
+        errorMsg.textContent = '请选择出发城市';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      if (!selectedDestCode) {
+        errorMsg.textContent = '请选择目的地城市';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      if (selectedOriginCode === selectedDestCode) {
+        errorMsg.textContent = '出发地和目的地不能相同';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      const date = document.getElementById('dateInput').value;
+      const cabin = document.getElementById('cabinInput').value;
+
+      // 保存搜索条件到 localStorage
+      const searchParams = {
+        origin: selectedOriginCode,
+        originName: document.getElementById('originInput').value,
+        destination: selectedDestCode,
+        destinationName: document.getElementById('destInput').value,
+        date: date,
+        cabin: cabin
+      };
+      localStorage.setItem('flightSearch', JSON.stringify(searchParams));
+
+      // 跳转到结果页面
+      window.location.href = `flight-list.html`;
+    });
+  </script>
+</body>
+</html>

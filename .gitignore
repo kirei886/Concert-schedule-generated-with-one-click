@@ -1,3 +1,6 @@
+# Wrangler build artifacts and state
+.wrangler/
+
 # Dependencies
 node_modules/
 package-lock.json
@@ -14,6 +17,9 @@ logs/
 # Environment
 .env
 .env.local
+
+# Wrangler config contains real secrets — commit wrangler.toml.example instead
+wrangler.toml
 
 # IDE
 .vscode/

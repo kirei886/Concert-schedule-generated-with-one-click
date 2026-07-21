@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>内容管理 - 管理后台</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <script src="/js/api-config.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    let contents = [];
+    let currentPage = 1;
+    let pagination = {};
+
+    async function init() {
+      const user = await AdminUtils.initAdminPage('内容管理', 'cms');
+      if (!user) return;
+
+      await loadContents();
+      renderContents();
+    }
+
+    async function loadContents(page = 1) {
+      currentPage = page;
+      const res = await AdminUtils.apiRequest(`/api/cms/contents?page=${page}&limit=20`);
+
+      if (res && res.code === 0) {
+        contents = res.data.contents;
+        pagination = res.data.pagination;
+        renderContents();
+      }
+    }
+
+    function renderContents() {
+      const content = document.getElementById('adminContent');
+
+      let html = `
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3 class="admin-card-title">内容列表</h3>
+            <button class="admin-btn admin-btn-primary" onclick="showCreateModal()">
+              ➕ 创建内容
+            </button>
+          </div>
+
+          ${contents.length === 0 ? AdminUtils.renderEmpty('暂无内容', '📝') : `
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>标题</th>
+                  <th>Slug</th>
+                  <th>分类</th>
+                  <th>状态</th>
+                  <th>浏览量</th>
+                  <th>作者</th>
+                  <th>更新时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${contents.map(c => `
+                  <tr>
+                    <td><strong>${AdminUtils.escapeHtml(c.title)}</strong></td>
+                    <td><code>/${c.slug}</code></td>
+                    <td>${c.category}</td>
+                    <td>${renderStatusBadge(c.status)}</td>
+                    <td>${c.view_count}</td>
+                    <td>${AdminUtils.escapeHtml(c.author_nickname || c.author_username)}</td>
+                    <td>${AdminUtils.formatDate(c.updated_at)}</td>
+                    <td>
+                      <button class="admin-btn admin-btn-default" onclick="editContent(${c.id})">编辑</button>
+                      <button class="admin-btn admin-btn-danger" onclick="deleteContent(${c.id}, '${AdminUtils.escapeHtml(c.title)}')">删除</button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div id="paginationContainer"></div>
+          `}
+        </div>
+
+        <!-- 创建/编辑模态框 -->
+        <div id="contentModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+          <div style="max-width: 800px; margin: 40px auto; background: white; border-radius: 12px; padding: 30px;">
+            <h3 style="margin-bottom: 20px;" id="modalTitle">创建内容</h3>
+            <form onsubmit="saveContent(event)">
+              <input type="hidden" id="contentId">
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">标题 <span class="required">*</span></label>
+                <input type="text" id="contentTitle" class="admin-form-input" required>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">Slug (URL路径) <span class="required">*</span></label>
+                <input type="text" id="contentSlug" class="admin-form-input" pattern="[a-z0-9-]+" required>
+                <div class="admin-form-hint">只能包含小写字母、数字和横线，如：about、help-center</div>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">内容 <span class="required">*</span></label>
+                <textarea id="contentContent" class="admin-form-textarea" style="min-height: 300px;" required></textarea>
+                <div class="admin-form-hint">支持 Markdown 格式</div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="admin-form-group">
+                  <label class="admin-form-label">分类</label>
+                  <select id="contentCategory" class="admin-form-select">
+                    <option value="page">页面</option>
+                    <option value="article">文章</option>
+                    <option value="announcement">公告</option>
+                  </select>
+                </div>
+
+                <div class="admin-form-group">
+                  <label class="admin-form-label">状态</label>
+                  <select id="contentStatus" class="admin-form-select">
+                    <option value="draft">草稿</option>
+                    <option value="published">已发布</option>
+                    <option value="archived">已归档</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">摘要</label>
+                <textarea id="contentExcerpt" class="admin-form-textarea" rows="3"></textarea>
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 24px;">
+                <button type="submit" class="admin-btn admin-btn-primary">保存</button>
+                <button type="button" class="admin-btn admin-btn-default" onclick="closeModal()">取消</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+
+      content.innerHTML = html;
+
+      if (contents.length > 0) {
+        AdminUtils.renderPagination(
+          document.getElementById('paginationContainer'),
+          pagination,
+          loadContents
+        );
+      }
+    }
+
+    function renderStatusBadge(status) {
+      const statusMap = {
+        draft: { label: '草稿', type: 'warning' },
+        published: { label: '已发布', type: 'success' },
+        archived: { label: '已归档', type: 'info' }
+      };
+      const s = statusMap[status] || { label: status, type: 'info' };
+      return AdminUtils.renderBadge(s.label, s.type);
+    }
+
+    function showCreateModal() {
+      document.getElementById('modalTitle').textContent = '创建内容';
+      document.getElementById('contentId').value = '';
+      document.getElementById('contentTitle').value = '';
+      document.getElementById('contentSlug').value = '';
+      document.getElementById('contentContent').value = '';
+      document.getElementById('contentCategory').value = 'page';
+      document.getElementById('contentStatus').value = 'draft';
+      document.getElementById('contentExcerpt').value = '';
+      document.getElementById('contentModal').style.display = 'block';
+    }
+
+    async function editContent(id) {
+      const content = contents.find(c => c.id === id);
+      if (!content) return;
+
+      document.getElementById('modalTitle').textContent = '编辑内容';
+      document.getElementById('contentId').value = content.id;
+      document.getElementById('contentTitle').value = content.title;
+      document.getElementById('contentSlug').value = content.slug;
+      document.getElementById('contentContent').value = content.content;
+      document.getElementById('contentCategory').value = content.category;
+      document.getElementById('contentStatus').value = content.status;
+      document.getElementById('contentExcerpt').value = content.excerpt || '';
+      document.getElementById('contentModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('contentModal').style.display = 'none';
+    }
+
+    async function saveContent(event) {
+      event.preventDefault();
+
+      const id = document.getElementById('contentId').value;
+      const data = {
+        title: document.getElementById('contentTitle').value,
+        slug: document.getElementById('contentSlug').value,
+        content: document.getElementById('contentContent').value,
+        category: document.getElementById('contentCategory').value,
+        status: document.getElementById('contentStatus').value,
+        excerpt: document.getElementById('contentExcerpt').value
+      };
+
+      const url = id ? `/api/cms/contents/${id}` : '/api/cms/contents';
+      const method = id ? 'PUT' : 'POST';
+
+      const res = await AdminUtils.apiRequest(url, { method, body: data });
+
+      if (res && res.code === 0) {
+        AdminUtils.showToast(id ? '更新成功' : '创建成功', 'success');
+        closeModal();
+        await loadContents(currentPage);
+      } else {
+        AdminUtils.showToast(res?.message || '操作失败', 'error');
+      }
+    }
+
+    async function deleteContent(id, title) {
+      AdminUtils.confirm(`确定要删除内容"${title}"吗？`, async () => {
+        const res = await AdminUtils.apiRequest(`/api/cms/contents/${id}`, { method: 'DELETE' });
+
+        if (res && res.code === 0) {
+          AdminUtils.showToast('删除成功', 'success');
+          await loadContents(currentPage);
+        } else {
+          AdminUtils.showToast(res?.message || '删除失败', 'error');
+        }
+      });
+    }
+
+    // 页面加载时初始化
+    init();
+  </script>
+</body>
+</html>

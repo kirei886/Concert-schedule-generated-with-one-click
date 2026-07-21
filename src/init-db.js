@@ -160,8 +160,21 @@ function initDatabase() {
   addOrderCol("ALTER TABLE orders ADD COLUMN offer_id TEXT DEFAULT ''", 'offer_id');
   addOrderCol("ALTER TABLE orders ADD COLUMN platform_status TEXT DEFAULT ''", 'platform_status');
   addOrderCol("ALTER TABLE orders ADD COLUMN callback_data TEXT DEFAULT ''", 'callback_data');
+
+  // ====== 迁移：orders 表新增龙虾机票相关字段 ======
+  addOrderCol("ALTER TABLE orders ADD COLUMN longxia_order_no TEXT DEFAULT ''", 'longxia_order_no');
+  addOrderCol("ALTER TABLE orders ADD COLUMN pnr TEXT DEFAULT ''", 'pnr');
+  addOrderCol("ALTER TABLE orders ADD COLUMN flight_no TEXT DEFAULT ''", 'flight_no');
+  addOrderCol("ALTER TABLE orders ADD COLUMN departure_time TEXT DEFAULT ''", 'departure_time');
+  addOrderCol("ALTER TABLE orders ADD COLUMN arrival_time TEXT DEFAULT ''", 'arrival_time');
+  addOrderCol("ALTER TABLE orders ADD COLUMN passenger_name TEXT DEFAULT ''", 'passenger_name');
+  addOrderCol("ALTER TABLE orders ADD COLUMN passenger_id_card TEXT DEFAULT ''", 'passenger_id_card');
+  addOrderCol("ALTER TABLE orders ADD COLUMN passenger_phone TEXT DEFAULT ''", 'passenger_phone');
+  addOrderCol("ALTER TABLE orders ADD COLUMN search_offer_id TEXT DEFAULT ''", 'search_offer_id');
+
   db.exec('CREATE INDEX IF NOT EXISTS idx_orders_platform ON orders(platform_order_no)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_orders_offer ON orders(offer_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_orders_longxia ON orders(longxia_order_no)');
 
   // 兼容老库：逐列添加，任意一列已存在不影响其余
   const msgCols = db.prepare("PRAGMA table_info(messages)").all().map(c => c.name);

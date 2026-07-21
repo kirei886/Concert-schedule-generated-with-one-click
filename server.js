@@ -17,6 +17,9 @@ const messageRoutes = require('./src/routes/messages');
 const favoriteRoutes = require('./src/routes/favorites');
 const orderRoutes = require('./src/routes/orders');
 const proxyRoutes = require('./src/routes/proxy');
+const settingsRoutes = require('./src/routes/settings');
+const notificationsRoutes = require('./src/routes/notifications');
+const cmsRoutes = require('./src/routes/cms');
 
 const PORT = process.env.PORT || 3000;
 
@@ -39,6 +42,9 @@ app.use('/api/itineraries', itineraryRoutes);
 app.use('/api/messages', authOptional, messageRoutes);
 app.use('/api/favorites', favoriteRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/cms', authOptional, cmsRoutes);
 app.use('/api', proxyRoutes);
 
 // 使用 authOptional 以便登录用户能看到自己是否已收藏该演唱会

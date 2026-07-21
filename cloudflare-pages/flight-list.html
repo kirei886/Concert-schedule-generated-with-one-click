@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>航班列表 - 演唱会行程生成器</title>
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-light: #A78BFA;
+      --accent: #EC4899;
+      --bg-gradient: linear-gradient(180deg, #f0eef5 0%, #f8f9fa 30%, #ffffff 100%);
+      --card-bg: #ffffff;
+      --text-main: #1a1a2e;
+      --text-sub: #6b7280;
+      --border: #e5e7eb;
+      --radius: 16px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      padding: 20px 0 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .search-info {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .search-info .route {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .search-info .details {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+    .search-info .btn-change {
+      padding: 8px 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .search-info .btn-change:hover {
+      background: var(--primary-light);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-sub);
+    }
+    .loading-spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-msg {
+      background: #fee;
+      color: #c00;
+      padding: 20px;
+      border-radius: var(--radius);
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .flight-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .flight-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    .flight-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 30px rgba(124, 58, 237, 0.15);
+    }
+
+    .flight-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .flight-no {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .airline {
+      font-size: 14px;
+      color: var(--text-sub);
+    }
+
+    .flight-time {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .time-block {
+      text-align: center;
+      flex: 1;
+    }
+    .time {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .airport {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+    .duration {
+      text-align: center;
+      padding: 0 20px;
+    }
+    .duration-line {
+      height: 2px;
+      background: var(--border);
+      margin-bottom: 4px;
+      position: relative;
+    }
+    .duration-line::after {
+      content: '✈️';
+      position: absolute;
+      right: -10px;
+      top: -10px;
+      font-size: 16px;
+    }
+    .duration-text {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    .flight-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .cabin-info {
+      font-size: 14px;
+      color: var(--text-sub);
+    }
+    .price-block {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .price {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .price-unit {
+      font-size: 14px;
+      color: var(--text-sub);
+    }
+    .btn-book {
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-book:hover {
+      transform: scale(1.05);
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-sub);
+    }
+    .no-results-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>✈️ 航班列表</h1>
+    </div>
+
+    <div class="search-info" id="searchInfo">
+      <div>
+        <div class="route" id="routeInfo">-</div>
+        <div class="details" id="dateInfo">-</div>
+      </div>
+      <button class="btn-change" onclick="window.location.href='flights.html'">修改搜索</button>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="loading-spinner"></div>
+      <div>正在搜索航班...</div>
+    </div>
+
+    <div id="error" class="error-msg" style="display: none;"></div>
+
+    <div id="flightList" class="flight-list"></div>
+
+    <div id="noResults" class="no-results" style="display: none;">
+      <div class="no-results-icon">😔</div>
+      <div>未找到符合条件的航班</div>
+      <div style="margin-top: 12px; font-size: 14px;">请尝试修改搜索条件</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://concert-itinerary-api.music-tripay.workers.dev';
+
+    // 从 localStorage 获取搜索条件
+    const searchParams = JSON.parse(localStorage.getItem('flightSearch') || '{}');
+
+    if (!searchParams.origin || !searchParams.destination) {
+      window.location.href = 'flights.html';
+    }
+
+    // 显示搜索信息
+    document.getElementById('routeInfo').textContent = `${searchParams.originName} → ${searchParams.destinationName}`;
+    document.getElementById('dateInfo').textContent = `${searchParams.date} | ${getCabinName(searchParams.cabin)}`;
+
+    function getCabinName(cabin) {
+      const names = {
+        economy: '经济舱',
+        business: '商务舱',
+        first: '头等舱'
+      };
+      return names[cabin] || '经济舱';
+    }
+
+    // 计算飞行时长
+    function calculateDuration(depTime, arrTime) {
+      const dep = new Date(`2000-01-01 ${depTime}`);
+      const arr = new Date(`2000-01-01 ${arrTime}`);
+      let diff = (arr - dep) / 1000 / 60; // 分钟
+      if (diff < 0) diff += 24 * 60; // 跨天
+      const hours = Math.floor(diff / 60);
+      const minutes = Math.floor(diff % 60);
+      return `${hours}小时${minutes}分钟`;
+    }
+
+    // 搜索航班
+    async function searchFlights() {
+      try {
+        const response = await fetch(`${API_BASE}/api/flight-search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from_code: searchParams.origin,
+            to_code: searchParams.destination,
+            depart_date: searchParams.date,
+            cabin_class: searchParams.cabin,
+            adult: 1
+          })
+        });
+
+        const data = await response.json();
+
+        document.getElementById('loading').style.display = 'none';
+
+        if (data.code === 0 && data.data && data.data.flights && data.data.flights.length > 0) {
+          displayFlights(data.data.flights, data.data.search_id);
+        } else {
+          document.getElementById('noResults').style.display = 'block';
+        }
+      } catch (error) {
+        console.error('搜索失败:', error);
+        document.getElementById('loading').style.display = 'none';
+        const errorDiv = document.getElementById('error');
+        errorDiv.textContent = '搜索航班失败，请稍后重试';
+        errorDiv.style.display = 'block';
+      }
+    }
+
+    // 显示航班列表
+    function displayFlights(flights, searchId) {
+      const listDiv = document.getElementById('flightList');
+
+      listDiv.innerHTML = flights.map((flight, index) => {
+        // 处理航段信息
+        const segment = flight.segments && flight.segments[0] ? flight.segments[0] : flight;
+        const depTime = segment.dep_time || segment.depart_time || '00:00';
+        const arrTime = segment.arr_time || segment.arrival_time || '00:00';
+        const flightNo = segment.flight_no || flight.flight_no || 'Unknown';
+        const airline = segment.airline_name || flight.airline_name || '未知航司';
+        const cabin = segment.cabin_name || flight.cabin_name || getCabinName(searchParams.cabin);
+        const price = flight.price || flight.total_price || 0;
+        const offerId = flight.search_offer_id || flight.offer_id || `offer_${index}`;
+
+        return `
+          <div class="flight-card" onclick="selectFlight('${offerId}', ${index})">
+            <div class="flight-header">
+              <div>
+                <div class="flight-no">${flightNo}</div>
+                <div class="airline">${airline}</div>
+              </div>
+            </div>
+
+            <div class="flight-time">
+              <div class="time-block">
+                <div class="time">${depTime}</div>
+                <div class="airport">${searchParams.originName}</div>
+              </div>
+
+              <div class="duration">
+                <div class="duration-line"></div>
+                <div class="duration-text">${calculateDuration(depTime, arrTime)}</div>
+              </div>
+
+              <div class="time-block">
+                <div class="time">${arrTime}</div>
+                <div class="airport">${searchParams.destinationName}</div>
+              </div>
+            </div>
+
+            <div class="flight-footer">
+              <div class="cabin-info">${cabin}</div>
+              <div class="price-block">
+                <div>
+                  <span class="price">¥${price}</span>
+                  <span class="price-unit">起</span>
+                </div>
+                <button class="btn-book" onclick="event.stopPropagation(); selectFlight('${offerId}', ${index})">
+                  预订
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 保存航班数据
+      localStorage.setItem('flightResults', JSON.stringify({ flights, searchId }));
+    }
+
+    // 选择航班
+    function selectFlight(offerId, index) {
+      const results = JSON.parse(localStorage.getItem('flightResults'));
+      const flight = results.flights[index];
+
+      // 保存选中的航班信息
+      localStorage.setItem('selectedFlight', JSON.stringify({
+        ...flight,
+        searchParams,
+        searchId: results.searchId,
+        offerId: offerId
+      }));
+
+      // 跳转到预订页面
+      window.location.href = 'flight-booking.html';
+    }
+
+    // 执行搜索
+    searchFlights();
+  </script>
+</body>
+</html>

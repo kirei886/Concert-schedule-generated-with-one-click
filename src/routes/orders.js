@@ -1,680 +1,364 @@
 /**
- * 订单路由：创建/支付/查询/退订
- * 支持龙虾平台真实支付和本地模拟支付
+ * 订单路由 - Workers 版本
  */
-const express = require('express');
-const https = require('https');
-const { body, validationResult } = require('express-validator');
-const db = require('../db');
-const { authRequired } = require('../middleware/auth');
 
-const router = express.Router();
+import { Router } from 'itty-router';
+import { authRequired } from '../middleware/auth.js';
+import { jsonResponse, errorResponse, successResponse } from '../utils/db.js';
+import { callLongxiaAPI, generateOrderNo } from './flights.js';
 
-// 龙虾平台配置
-const API_TOKEN = process.env.LONGXIA_TOKEN || 'rdak_live_QmPWtfRKNBVyMcg07kn98sLPCMcwGmFk';
-const API_HOST = 'api.longxiachuxing.com';
+const router = Router({ base: '/api/orders' });
 
-// 调用龙虾平台API
-function callLongxiaApi(apiPath, method, bodyData) {
-  return new Promise((resolve, reject) => {
-    const bodyStr = bodyData ? JSON.stringify(bodyData) : null;
-    const options = {
-      hostname: API_HOST,
-      port: 443,
-      path: apiPath,
-      method: method,
-      headers: {
-        'Authorization': 'Bearer ' + API_TOKEN,
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
-    };
-    if (bodyStr) {
-      options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+// 获取我的订单列表
+router.get('/', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
+  }
+
+  try {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const status = url.searchParams.get('status');
+    const offset = (page - 1) * limit;
+
+    let sql = 'SELECT * FROM orders WHERE user_id = ?';
+    const params = [request.user.id];
+
+    if (status) {
+      sql += ' AND status = ?';
+      params.push(status);
     }
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          resolve(json);
-        } catch (e) {
-          resolve({ code: -1, message: '响应解析失败', raw: data });
-        }
-      });
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const stmt = request.env.DB.prepare(sql);
+    params.forEach(p => stmt.bind(p));
+    const orders = await stmt.all();
+
+    return successResponse({
+      orders: orders.results || [],
+      pagination: { page, limit, total: orders.results?.length || 0 }
     });
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
-    if (bodyStr) req.write(bodyStr);
-    req.end();
-  });
-}
+  } catch (error) {
+    console.error('Get orders error:', error);
+    return errorResponse('获取订单失败', 50001, 500);
+  }
+});
 
-// 生成订单号: ORD + 年月日时分秒 + 4位随机
-function genOrderNo() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const ts = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `ORD${ts}${rand}`;
-}
-
-// 查找或创建行程：购买时自动关联行程，保证用户购买后仍能查看完整出行方案
-// 去重逻辑：同一用户 + 同一出行日期 + 相同出发/目的城市，且 2 小时内已创建的行程直接复用
-function findOrCreateItinerary(userId, trip) {
-  const { depart_city, dest_city, travel_date } = trip;
-
-  if (travel_date && depart_city && dest_city) {
-    const recent = db.prepare(`
-      SELECT id FROM itineraries
-      WHERE user_id = ? AND travel_date = ? AND depart_city = ? AND dest_city = ?
-        AND created_at > datetime('now','localtime','-2 hours')
-      ORDER BY created_at DESC LIMIT 1
-    `).get(userId, travel_date, depart_city, dest_city);
-    if (recent) return recent.id;
+// 获取订单详情
+router.get('/:id', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
 
-  // 计算预算总额
-  let totalBudget = 0;
-  for (const key of ['flight_info', 'train_info', 'bus_info', 'taxi_info', 'hotel_info']) {
-    if (trip[key] && trip[key]._price != null) totalBudget += parseFloat(trip[key]._price) || 0;
+  try {
+    const { id } = request.params;
+
+    const order = await request.env.DB.prepare(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?'
+    ).bind(id, request.user.id).first();
+
+    if (!order) {
+      return errorResponse('订单不存在', 40401, 404);
+    }
+
+    // 如果是龙虾机票订单，获取最新状态
+    if (order.longxia_order_no && order.item_type === 'flight') {
+      try {
+        const longxiaData = await callLongxiaAPI(
+          '/open/v1/flight/order/detail',
+          'POST',
+          { system_no: order.longxia_order_no },
+          request.env.LONGXIA_TOKEN
+        );
+
+        if (longxiaData.code === 0) {
+          const longxiaOrder = longxiaData.data;
+
+          // 更新本地订单状态
+          let localStatus = 'pending';
+          if (longxiaOrder.pay_status === 'paid') {
+            localStatus = 'paid';
+          }
+
+          await request.env.DB.prepare(
+            'UPDATE orders SET status = ?, pnr = ? WHERE id = ?'
+          ).bind(localStatus, longxiaOrder.pnr || '', id).run();
+
+          // 返回合并后的订单信息
+          return successResponse({
+            ...order,
+            status: localStatus,
+            pnr: longxiaOrder.pnr,
+            flight_info: longxiaOrder.flight_info,
+            pay_status: longxiaOrder.pay_status,
+            flight_status: longxiaOrder.flight_status
+          });
+        }
+      } catch (err) {
+        console.error('查询龙虾订单失败:', err);
+      }
+    }
+
+    return successResponse(order);
+  } catch (error) {
+    console.error('Get order error:', error);
+    return errorResponse('获取订单失败', 50001, 500);
   }
-  if (trip.total_budget != null) totalBudget = parseFloat(trip.total_budget) || totalBudget;
-
-  const title = trip.title || `${dest_city || ''}演唱会行程`.trim();
-  const result = db.prepare(`
-    INSERT INTO itineraries
-      (user_id, title, depart_city, dest_city, travel_date,
-       flight_info, train_info, bus_info, taxi_info, hotel_info,
-       check_in, check_out, total_budget, notes, is_public, share_code)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '')
-  `).run(
-    userId,
-    title,
-    depart_city || '',
-    dest_city || '',
-    travel_date || '',
-    trip.flight_info ? JSON.stringify(trip.flight_info) : '',
-    trip.train_info ? JSON.stringify(trip.train_info) : '',
-    trip.bus_info ? JSON.stringify(trip.bus_info) : '',
-    trip.taxi_info ? JSON.stringify(trip.taxi_info) : '',
-    trip.hotel_info ? JSON.stringify(trip.hotel_info) : '',
-    trip.check_in || travel_date || '',
-    trip.check_out || (travel_date ? getNextDateStr(travel_date) : ''),
-    totalBudget,
-  );
-  return result.lastInsertRowid;
-}
-
-// 计算 YYYY-MM-DD 的次日
-function getNextDateStr(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d.getTime())) return '';
-  d.setDate(d.getDate() + 1);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
+});
 
 // 创建订单
-router.post('/', authRequired, [
-  body('item_type').isIn(['flight', 'train', 'bus', 'taxi', 'hotel']).withMessage('商品类型无效'),
-  body('item_name').notEmpty().withMessage('商品名称不能为空'),
-  body('unit_price').isFloat({ min: 0 }).withMessage('单价必须大于等于0'),
-  body('quantity').optional().isInt({ min: 1, max: 10 }).withMessage('数量1-10'),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ code: 400, message: errors.array()[0].msg, data: null });
-  }
-
-  const { item_type, item_name, item_detail, item_snapshot, unit_price, quantity, contact_name, contact_phone, travel_date, offer_id, passengers, guests } = req.body;
-  const qty = quantity || 1;
-  const total = parseFloat(unit_price) * qty;
-
-  // 自动创建/复用行程并关联订单，确保购买后仍可在"我的行程"查看完整方案
-  let itineraryId = null;
-  const trip = req.body.trip_context || {};
-  if (trip.travel_date || trip.depart_city || trip.dest_city ||
-      trip.flight_info || trip.train_info || trip.bus_info || trip.taxi_info || trip.hotel_info) {
-    try {
-      itineraryId = findOrCreateItinerary(req.user.id, trip);
-    } catch (e) {
-      console.error('[orders] 自动创建行程失败:', e.message);
-    }
-  }
-
-  const orderNo = genOrderNo();
-  
-  // 调用龙虾平台下单（如果有 offer_id）
-  let platformOrderNo = '';
-  let payUrl = '';
-  let platformStatus = '';
-  
-  if (offer_id) {
-    try {
-      const outTradeNo = orderNo;
-      let platformResult;
-      
-      if (item_type === 'flight') {
-        platformResult = await callLongxiaApi('/open/v1/flight/order/create', 'POST', {
-          offer_id: offer_id,
-          out_trade_no: outTradeNo,
-          contact: { name: contact_name || '预订人', phone: contact_phone || '' },
-          passengers: passengers || [{ name: '预订人', id_card: '' }],
-          callback_url: `${req.protocol}://${req.get('host')}/api/orders/callback`,
-        });
-      } else if (item_type === 'hotel') {
-        platformResult = await callLongxiaApi('/open/v1/hotel/order/create', 'POST', {
-          offer_id: offer_id,
-          out_trade_no: outTradeNo,
-          contact: { name: contact_name || '预订人', phone: contact_phone || '' },
-          guests: guests || [{ name: '预订人' }],
-          callback_url: `${req.protocol}://${req.get('host')}/api/orders/callback`,
-        });
-      } else if (item_type === 'taxi') {
-        platformResult = await callLongxiaApi('/open/v1/taxi/order/create', 'POST', {
-          contact_phone: contact_phone || '',
-          offer_id: offer_id,
-          out_trade_no: outTradeNo,
-          pay_channel: 'user_pay',
-          contact_name: contact_name || '',
-          callback_url: `${req.protocol}://${req.get('host')}/api/orders/callback`,
-        });
-      } else if (item_type === 'train') {
-        platformResult = await callLongxiaApi('/open/v1/train/order/create', 'POST', {
-          offer_id: offer_id,
-          out_trade_no: outTradeNo,
-          contact: { name: contact_name || '预订人', phone: contact_phone || '' },
-          passengers: passengers || [{ name: '预订人', id_card: '' }],
-          callback_url: `${req.protocol}://${req.get('host')}/api/orders/callback`,
-        });
-      } else if (item_type === 'bus') {
-        platformResult = await callLongxiaApi('/open/v1/bus/order/create', 'POST', {
-          offer_id: offer_id,
-          out_trade_no: outTradeNo,
-          contact: { name: contact_name || '预订人', phone: contact_phone || '' },
-          passengers: passengers || [{ name: '预订人', id_card: '' }],
-          callback_url: `${req.protocol}://${req.get('host')}/api/orders/callback`,
-        });
-      }
-      
-      if (platformResult && platformResult.code === 0 && platformResult.data) {
-        platformOrderNo = platformResult.data.order_no || platformResult.data.order_id || '';
-        payUrl = platformResult.data.pay_url || platformResult.data.payment_url || '';
-        platformStatus = platformResult.data.status || '';
-        console.log(`[orders] 龙虾平台下单成功: ${platformOrderNo}, pay_url: ${payUrl ? '有' : '无'}`);
-      } else {
-        console.warn(`[orders] 龙虾平台下单失败: ${platformResult?.message || '未知错误'}`);
-      }
-    } catch (e) {
-      console.error('[orders] 调用龙虾平台下单异常:', e.message);
-    }
-  }
-
-  const result = db.prepare(`
-    INSERT INTO orders (order_no, user_id, item_type, item_name, item_detail, item_snapshot,
-      quantity, unit_price, total_amount, contact_name, contact_phone, travel_date, status, itinerary_id,
-      platform_order_no, pay_url, offer_id, platform_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
-  `).run(orderNo, req.user.id, item_type, item_name, item_detail || '', JSON.stringify(item_snapshot || {}),
-    qty, parseFloat(unit_price), total, contact_name || '', contact_phone || '', travel_date || '', itineraryId,
-    platformOrderNo, payUrl, offer_id || '', platformStatus);
-
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.lastInsertRowid);
-  res.json({ code: 0, data: order });
-});
-
-// 支付订单（支持真实支付和模拟支付）
-router.post('/:id/pay', authRequired, async (req, res) => {
-  const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-  if (order.status !== 'pending') {
-    return res.status(400).json({ code: 400, message: `订单状态为${order.status}，无法支付`, data: null });
-  }
-
-  const isAdmin = req.user.role === 'admin';
-  
-  // 如果有龙虾平台支付URL，返回支付链接让前端跳转
-  if (order.pay_url) {
-    return res.json({
-      code: 0,
-      data: { ...order, pay_url: order.pay_url },
-      message: '请跳转至支付页面完成支付',
-    });
-  }
-
-  // 管理员免支付直接成功
-  if (isAdmin) {
-    db.prepare(`
-      UPDATE orders SET status = 'paid', pay_method = 'admin_skip', paid_at = datetime('now','localtime'),
-        updated_at = datetime('now','localtime') WHERE id = ?
-    `).run(orderId);
-    const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    return res.json({
-      code: 0,
-      data: updated,
-      message: '管理员免支付，订单已完成'
-    });
-  }
-
-  // 没有龙虾平台支付链接且不是管理员，使用模拟支付
-  const { pay_method } = req.body;
-  const method = pay_method || 'wechat';
-
-  db.prepare(`
-    UPDATE orders SET status = 'paid', pay_method = ?, paid_at = datetime('now','localtime'),
-      updated_at = datetime('now','localtime') WHERE id = ?
-  `).run(method, orderId);
-
-  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-  res.json({
-    code: 0,
-    data: updated,
-    message: '支付成功'
-  });
-});
-
-// 查询龙虾平台订单状态
-router.post('/:id/sync-status', authRequired, async (req, res) => {
-  const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-  if (!order.platform_order_no) {
-    return res.status(400).json({ code: 400, message: '该订单未关联龙虾平台订单', data: null });
+router.post('/', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
 
   try {
-    let apiPath = '';
-    if (order.item_type === 'flight') {
-      apiPath = '/open/v1/flight/order/query';
-    } else if (order.item_type === 'hotel') {
-      apiPath = '/open/v1/hotel/order/query';
-    } else if (order.item_type === 'taxi') {
-      apiPath = '/open/v1/taxi/order/query';
-    } else if (order.item_type === 'train') {
-      apiPath = '/open/v1/train/order/query';
-    } else if (order.item_type === 'bus') {
-      apiPath = '/open/v1/bus/order/query';
+    const body = await request.json();
+    const {
+      itinerary_id = null,
+      item_type,
+      item_name,
+      item_detail = '',
+      item_snapshot = '',
+      quantity = 1,
+      unit_price,
+      total_amount,
+      contact_name = '',
+      contact_phone = '',
+      travel_date = '',
+      // 机票相关字段
+      offer_id = '',
+      search_offer_id = '',
+      passengers = [],
+      contact = {},
+      flight_no = '',
+      departure_time = '',
+      arrival_time = ''
+    } = body;
+
+    if (!item_type || !item_name) {
+      return errorResponse('必填字段不能为空', 40001, 400);
     }
 
-    if (!apiPath) {
-      return res.status(400).json({ code: 400, message: '不支持的商品类型', data: null });
-    }
+    // ========== 如果是机票订单，调用龙虾预订接口 ==========
+    if (item_type === 'flight' && offer_id) {
+      try {
+        // 生成商户订单号
+        const outTradeNo = generateOrderNo();
 
-    const result = await callLongxiaApi(apiPath, 'POST', {
-      order_no: order.platform_order_no,
-      out_trade_no: order.order_no,
-    });
+        // 调用龙虾预订接口
+        const longxiaData = await callLongxiaAPI(
+          '/open/v1/flight/order/create',
+          'POST',
+          {
+            offer_id,
+            out_trade_no: outTradeNo,
+            passengers,
+            contact,
+            pay_mode: 'user_pay'
+          },
+          request.env.LONGXIA_TOKEN
+        );
 
-    if (result && result.code === 0 && result.data) {
-      const platformStatus = result.data.status || '';
-      let localStatus = order.status;
-      
-      if (platformStatus === 'paid' || platformStatus === 'completed' || platformStatus === 'success') {
-        localStatus = 'paid';
-      } else if (platformStatus === 'refunded' || platformStatus === 'refund_success') {
-        localStatus = 'refunded';
-      } else if (platformStatus === 'cancelled' || platformStatus === 'failed') {
-        localStatus = 'cancelled';
-      }
+        if (longxiaData.code === 0) {
+          const longxiaOrder = longxiaData.data;
 
-      if (localStatus !== order.status) {
-        db.prepare(`
-          UPDATE orders SET status = ?, platform_status = ?, callback_data = ?,
-            updated_at = datetime('now','localtime') WHERE id = ?
-        `).run(localStatus, platformStatus, JSON.stringify(result.data), orderId);
-      }
+          // 保存到我们的数据库
+          const result = await request.env.DB.prepare(`
+            INSERT INTO orders (
+              order_no, user_id, itinerary_id, item_type, item_name,
+              total_amount, status, longxia_order_no,
+              passenger_name, passenger_id_card, passenger_phone,
+              contact_name, contact_phone,
+              flight_no, departure_time, arrival_time,
+              offer_id, search_offer_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            outTradeNo,
+            request.user.id,
+            itinerary_id,
+            'flight',
+            item_name,
+            longxiaOrder.total_amount || total_amount,
+            'pending',
+            longxiaOrder.system_no,
+            passengers[0]?.name || '',
+            passengers[0]?.id_number || '',
+            passengers[0]?.phone || '',
+            contact.name || contact_name,
+            contact.phone || contact_phone,
+            flight_no,
+            departure_time,
+            arrival_time,
+            offer_id,
+            search_offer_id
+          ).run();
 
-      const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-      res.json({
-        code: 0,
-        data: { ...updated, platform_data: result.data },
-        message: `订单状态已同步: ${platformStatus}`
-      });
-    } else {
-      res.status(500).json({ code: 500, message: '查询龙虾平台订单失败', data: null });
-    }
-  } catch (e) {
-    console.error('[orders] 同步订单状态失败:', e.message);
-    res.status(500).json({ code: 500, message: '同步订单状态失败', data: null });
-  }
-});
+          const orderId = result.meta.last_row_id;
 
-// 查询退改费用（调用龙虾平台）
-router.post('/:id/refund-fee', authRequired, async (req, res) => {
-  const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-
-  const typeMap = { flight: '机票', train: '高铁/火车', bus: '城际巴士', hotel: '酒店', taxi: '打车' };
-  const typeName = typeMap[order.item_type] || order.item_type;
-
-  if (order.platform_order_no) {
-    try {
-      let apiPath = '';
-      if (order.item_type === 'flight') {
-        apiPath = '/open/v1/flight/order/refund-fee';
-      } else if (order.item_type === 'hotel') {
-        apiPath = '/open/v1/hotel/order/refund-fee';
-      } else if (order.item_type === 'taxi') {
-        apiPath = '/open/v1/taxi/order/refund-fee';
-      } else if (order.item_type === 'train') {
-        apiPath = '/open/v1/train/order/refund-fee';
-      } else if (order.item_type === 'bus') {
-        apiPath = '/open/v1/bus/order/refund-fee';
-      }
-
-      if (apiPath) {
-        const result = await callLongxiaApi(apiPath, 'POST', {
-          order_no: order.platform_order_no,
-          out_trade_no: order.order_no,
-        });
-
-        if (result && result.code === 0 && result.data) {
-          const fee = result.data;
-          res.json({
-            code: 0,
-            data: {
-              platform_order_no: order.platform_order_no,
-              can_refund: true,
-              refund_fee: fee.refund_fee || fee.fee || 0,
-              refund_amount: fee.refund_amount || (order.total_amount - (fee.refund_fee || fee.fee || 0)),
-              original_amount: order.total_amount,
-              fee_description: fee.fee_description || fee.description || '',
-              type_name: typeName,
-            },
-            message: ''
-          });
-          return;
+          return successResponse({
+            id: orderId,
+            order_no: outTradeNo,
+            longxia_order_no: longxiaOrder.system_no,
+            checkout_url: longxiaOrder.checkout_url
+          }, '机票订单创建成功');
+        } else {
+          return errorResponse(longxiaData.message || '创建订单失败', longxiaData.code, 400);
         }
+      } catch (err) {
+        console.error('Create flight order error:', err);
+        return errorResponse('创建机票订单失败: ' + err.message, 50001, 500);
       }
-    } catch (e) {
-      console.error('[orders] 查询龙虾平台退改费用失败:', e.message);
     }
-  }
 
-  const refundFee = calculateRefundFee(order);
-  res.json({
-    code: 0,
-    data: {
-      platform_order_no: order.platform_order_no || '',
-      can_refund: true,
-      refund_fee: refundFee,
-      refund_amount: order.total_amount - refundFee,
-      original_amount: order.total_amount,
-      fee_description: getFeeDescription(order.item_type, refundFee),
-      type_name: typeName,
-    },
-    message: order.platform_order_no ? '龙虾平台查询失败，显示估算费用' : '显示估算退改费用'
-  });
+    // ========== 其他类型的订单（原有逻辑） ==========
+    if (!unit_price || !total_amount) {
+      return errorResponse('必填字段不能为空', 40001, 400);
+    }
+
+    // 生成订单号
+    const order_no = `ORD${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    const result = await request.env.DB.prepare(`
+      INSERT INTO orders (
+        order_no, user_id, itinerary_id, item_type, item_name, item_detail,
+        item_snapshot, quantity, unit_price, total_amount, contact_name,
+        contact_phone, travel_date, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+    `).bind(
+      order_no, request.user.id, itinerary_id, item_type, item_name, item_detail,
+      item_snapshot, quantity, unit_price, total_amount, contact_name,
+      contact_phone, travel_date
+    ).run();
+
+    return successResponse({
+      id: result.meta.last_row_id,
+      order_no
+    }, '订单创建成功');
+  } catch (error) {
+    console.error('Create order error:', error);
+    return errorResponse('创建订单失败', 50001, 500);
+  }
 });
 
-// 根据订单类型计算退改费用（本地估算）
-function calculateRefundFee(order) {
-  const now = new Date();
-  const travelDate = order.travel_date ? new Date(order.travel_date) : new Date();
-  const daysBefore = Math.ceil((travelDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (order.item_type === 'flight') {
-    if (daysBefore >= 7) return order.total_amount * 0.05;
-    if (daysBefore >= 4) return order.total_amount * 0.1;
-    if (daysBefore >= 2) return order.total_amount * 0.2;
-    if (daysBefore >= 1) return order.total_amount * 0.3;
-    return order.total_amount * 0.5;
+// 取消订单
+router.put('/:id/cancel', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
 
-  if (order.item_type === 'train') {
-    if (daysBefore >= 8) return 0;
-    if (daysBefore >= 4) return order.total_amount * 0.05;
-    if (daysBefore >= 2) return order.total_amount * 0.1;
-    if (daysBefore >= 1) return order.total_amount * 0.2;
-    return order.total_amount * 0.5;
-  }
-
-  if (order.item_type === 'bus') {
-    if (daysBefore >= 3) return order.total_amount * 0.05;
-    if (daysBefore >= 1) return order.total_amount * 0.1;
-    return order.total_amount * 0.2;
-  }
-
-  if (order.item_type === 'hotel') {
-    if (daysBefore >= 3) return 0;
-    if (daysBefore >= 1) return order.total_amount * 0.1;
-    return order.total_amount * 0.3;
-  }
-
-  if (order.item_type === 'taxi') {
-    if (daysBefore >= 1) return 0;
-    return order.total_amount * 0.2;
-  }
-
-  return order.total_amount * 0.1;
-}
-
-// 获取退改费用描述
-function getFeeDescription(itemType, fee) {
-  const typeDesc = {
-    flight: '机票',
-    train: '高铁',
-    bus: '巴士',
-    hotel: '酒店',
-    taxi: '打车'
-  };
-  if (fee === 0) return `${typeDesc[itemType] || '订单'}距出行日期较远，免手续费`;
-  return `${typeDesc[itemType] || '订单'}退改手续费 ¥${fee.toFixed(2)}`;
-}
-
-// 龙虾平台支付回调接口
-router.post('/callback', async (req, res) => {
   try {
-    const callbackData = req.body;
-    console.log('[orders] 收到支付回调:', JSON.stringify(callbackData));
+    const { id } = request.params;
 
-    const outTradeNo = callbackData.out_trade_no || callbackData.order_no || '';
-    if (!outTradeNo) {
-      return res.status(400).json({ code: 400, message: '缺少订单号' });
-    }
+    const order = await request.env.DB.prepare(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?'
+    ).bind(id, request.user.id).first();
 
-    const order = db.prepare('SELECT * FROM orders WHERE order_no = ?').get(outTradeNo);
     if (!order) {
-      console.warn('[orders] 回调订单不存在:', outTradeNo);
-      return res.status(404).json({ code: 404, message: '订单不存在' });
+      return errorResponse('订单不存在', 40401, 404);
     }
 
-    const platformStatus = callbackData.status || callbackData.pay_status || '';
-    let localStatus = order.status;
-
-    if (platformStatus === 'paid' || platformStatus === 'completed' || platformStatus === 'success') {
-      localStatus = 'paid';
-    } else if (platformStatus === 'refunded' || platformStatus === 'refund_success') {
-      localStatus = 'refunded';
-    } else if (platformStatus === 'cancelled' || platformStatus === 'failed') {
-      localStatus = 'cancelled';
+    if (order.status !== 'pending') {
+      return errorResponse('只能取消待支付的订单', 40001, 400);
     }
 
-    if (localStatus !== order.status) {
-      db.prepare(`
-        UPDATE orders SET status = ?, platform_status = ?, callback_data = ?,
-          updated_at = datetime('now','localtime') WHERE id = ?
-      `).run(localStatus, platformStatus, JSON.stringify(callbackData), order.id);
-      
-      if (localStatus === 'paid') {
-        db.prepare(`
-          UPDATE orders SET pay_method = ?, paid_at = datetime('now','localtime') WHERE id = ?
-        `).run(callbackData.pay_method || 'platform', order.id);
-      }
-    }
+    await request.env.DB.prepare(`
+      UPDATE orders SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?
+    `).bind(id).run();
 
-    res.json({ code: 0, message: '回调处理成功' });
-  } catch (e) {
-    console.error('[orders] 支付回调处理失败:', e.message);
-    res.status(500).json({ code: 500, message: '处理失败' });
+    return successResponse(null, '订单已取消');
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    return errorResponse('取消订单失败', 50001, 500);
   }
 });
 
-// 查询我的订单列表
-router.get('/', authRequired, (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const status = req.query.status;
-  const offset = (page - 1) * limit;
-
-  let sql = 'SELECT * FROM orders WHERE user_id = ?';
-  let params = [req.user.id];
-  if (status && status !== 'all') {
-    sql += ' AND status = ?';
-    params.push(status);
+// 订单支付
+router.post('/:id/pay', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
   }
-  sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
 
-  const orders = db.prepare(sql).all(...params);
+  try {
+    const { id } = request.params;
 
-  let countSql = 'SELECT COUNT(*) as total FROM orders WHERE user_id = ?';
-  let countParams = [req.user.id];
-  if (status && status !== 'all') {
-    countSql += ' AND status = ?';
-    countParams.push(status);
-  }
-  const { total } = db.prepare(countSql).get(...countParams);
+    const order = await request.env.DB.prepare(
+      'SELECT * FROM orders WHERE id = ? AND user_id = ?'
+    ).bind(id, request.user.id).first();
 
-  res.json({
-    code: 0,
-    data: {
-      list: orders,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+    if (!order) {
+      return errorResponse('订单不存在', 40401, 404);
     }
-  });
-});
 
-// 查询订单详情
-router.get('/:id', authRequired, (req, res) => {
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-  let snapshot = {};
-  try { snapshot = JSON.parse(order.item_snapshot || '{}'); } catch {}
-  res.json({ code: 0, data: { ...order, parsed_snapshot: snapshot } });
-});
-
-// 退订/取消订单（支持龙虾平台真实退订）
-router.post('/:id/refund', authRequired, [
-  body('reason').optional().isLength({ max: 200 }),
-], async (req, res) => {
-  const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-  if (order.status !== 'paid') {
-    return res.status(400).json({ code: 400, message: `订单状态为${order.status}，无法退订`, data: null });
-  }
-
-  const { reason } = req.body;
-  let platformRefundResult = null;
-
-  if (order.platform_order_no) {
-    try {
-      let apiPath = '';
-      if (order.item_type === 'flight') {
-        apiPath = '/open/v1/flight/order/refund';
-      } else if (order.item_type === 'hotel') {
-        apiPath = '/open/v1/hotel/order/refund';
-      } else if (order.item_type === 'taxi') {
-        apiPath = '/open/v1/taxi/order/cancel';
-      } else if (order.item_type === 'train') {
-        apiPath = '/open/v1/train/order/refund';
-      } else if (order.item_type === 'bus') {
-        apiPath = '/open/v1/bus/order/refund';
-      }
-
-      if (apiPath) {
-        platformRefundResult = await callLongxiaApi(apiPath, 'POST', {
-          order_no: order.platform_order_no,
-          out_trade_no: order.order_no,
-          reason: reason || '用户主动退订',
-        });
-        console.log(`[orders] 龙虾平台退订结果: ${JSON.stringify(platformRefundResult)}`);
-      }
-    } catch (e) {
-      console.error('[orders] 调用龙虾平台退订异常:', e.message);
+    if (order.status !== 'pending') {
+      return errorResponse('该订单不能支付', 40001, 400);
     }
-  }
 
-  db.prepare(`
-    UPDATE orders SET status = 'refunded', refund_reason = ?, refunded_at = datetime('now','localtime'),
-      updated_at = datetime('now','localtime') WHERE id = ?
-  `).run(reason || '用户主动退订', orderId);
+    // 如果是龙虾机票订单
+    if (order.longxia_order_no && order.item_type === 'flight') {
+      const body = await request.json();
+      const { pay_type = 'wechat_h5' } = body;
 
-  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-  
-  if (platformRefundResult && platformRefundResult.code === 0) {
-    res.json({ code: 0, data: updated, message: '退订成功' });
-  } else {
-    res.json({ 
-      code: 0, 
-      data: updated, 
-      message: order.platform_order_no ? '本地订单已退订，龙虾平台退订结果请稍后查询' : '退订成功'
-    });
-  }
-});
+      try {
+        // 调用龙虾支付接口
+        const longxiaData = await callLongxiaAPI(
+          '/open/v1/flight/order/pay',
+          'POST',
+          {
+            system_no: order.longxia_order_no,
+            pay_type: pay_type,
+            return_url: `${request.headers.get('origin') || 'https://tripay-music-app.pages.dev'}/payment.html?order_id=${id}`
+          },
+          request.env.LONGXIA_TOKEN
+        );
 
-// 取消待支付订单（支持龙虾平台真实取消）
-router.post('/:id/cancel', authRequired, async (req, res) => {
-  const orderId = req.params.id;
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(orderId, req.user.id);
-  if (!order) {
-    return res.status(404).json({ code: 404, message: '订单不存在', data: null });
-  }
-  if (order.status !== 'pending') {
-    return res.status(400).json({ code: 400, message: `订单状态为${order.status}，无法取消`, data: null });
-  }
+        if (longxiaData.code === 0) {
+          // 保存支付参数到订单
+          await request.env.DB.prepare(
+            'UPDATE orders SET pay_url = ?, pay_method = ? WHERE id = ?'
+          ).bind(JSON.stringify(longxiaData.data.pay_params), pay_type, id).run();
 
-  if (order.platform_order_no) {
-    try {
-      let apiPath = '';
-      if (order.item_type === 'flight') {
-        apiPath = '/open/v1/flight/order/cancel';
-      } else if (order.item_type === 'hotel') {
-        apiPath = '/open/v1/hotel/order/cancel';
-      } else if (order.item_type === 'taxi') {
-        apiPath = '/open/v1/taxi/order/cancel';
-      } else if (order.item_type === 'train') {
-        apiPath = '/open/v1/train/order/cancel';
-      } else if (order.item_type === 'bus') {
-        apiPath = '/open/v1/bus/order/cancel';
+          return successResponse({
+            order_id: parseInt(id),
+            pay_params: longxiaData.data.pay_params,
+            pay_type: longxiaData.data.pay_type,
+            status: 'pending'
+          }, '请跳转至支付页面');
+        } else {
+          return errorResponse(longxiaData.message || '支付失败', longxiaData.code, 400);
+        }
+      } catch (err) {
+        console.error('Flight order payment error:', err);
+        return errorResponse('支付失败: ' + err.message, 50001, 500);
       }
-
-      if (apiPath) {
-        const result = await callLongxiaApi(apiPath, 'POST', {
-          order_no: order.platform_order_no,
-          out_trade_no: order.order_no,
-        });
-        console.log(`[orders] 龙虾平台取消订单结果: ${JSON.stringify(result)}`);
-      }
-    } catch (e) {
-      console.error('[orders] 调用龙虾平台取消订单异常:', e.message);
     }
+
+    // 其他支付方式（原有逻辑 - 模拟支付）
+    await request.env.DB.prepare(`
+      UPDATE orders
+      SET status = 'paid',
+          paid_at = datetime('now'),
+          pay_method = 'mock',
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(id).run();
+
+    return successResponse({
+      order_id: parseInt(id),
+      status: 'paid'
+    }, '支付成功');
+  } catch (error) {
+    console.error('Pay order error:', error);
+    return errorResponse('支付失败', 50001, 500);
   }
-
-  db.prepare(`
-    UPDATE orders SET status = 'cancelled', updated_at = datetime('now','localtime') WHERE id = ?
-  `).run(orderId);
-
-  res.json({ code: 0, message: '订单已取消' });
 });
 
-module.exports = router;
+export default router;

@@ -1,52 +1,67 @@
 /**
- * JWT 认证中间件
+ * 认证中间件 - Workers 版本
  */
-const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'concert_itinerary_secret_2026';
-const JWT_EXPIRES = '7d';
+import { verifyToken } from '../utils/jwt.js';
 
-function generateToken(user) {
-  return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES }
-  );
-}
+// 认证中间件 - 必须登录
+export async function authRequired(request) {
+  const authHeader = request.headers.get('Authorization');
 
-function authRequired(req, res, next) {
-  const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ code: 401, message: '请先登录', data: null });
+    return {
+      error: true,
+      status: 401,
+      body: { code: 401, message: '请先登录', data: null }
+    };
   }
-  const token = authHeader.slice(7);
+
+  const token = authHeader.substring(7);
+
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ code: 401, message: '登录已过期，请重新登录', data: null });
+    const decoded = await verifyToken(token, request.env.JWT_SECRET);
+    request.user = decoded;
+    return { error: false };
+  } catch (error) {
+    return {
+      error: true,
+      status: 401,
+      body: { code: 401, message: '登录已过期，请重新登录', data: null }
+    };
   }
 }
 
-function adminRequired(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ code: 403, message: '需要管理员权限', data: null });
+// 管理员权限中间件
+export async function adminRequired(request) {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return authResult;
   }
-  next();
+
+  if (!request.user || request.user.role !== 'admin') {
+    return {
+      error: true,
+      status: 403,
+      body: { code: 403, message: '需要管理员权限', data: null }
+    };
+  }
+
+  return { error: false };
 }
 
-function authOptional(req, res, next) {
-  const authHeader = req.headers.authorization;
+// 可选认证中间件
+export async function authOptional(request) {
+  const authHeader = request.headers.get('Authorization');
+
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.slice(7);
+    const token = authHeader.substring(7);
     try {
-      req.user = jwt.verify(token, JWT_SECRET);
-    } catch {
-      // token 无效就当未登录处理
+      const decoded = await verifyToken(token, request.env.JWT_SECRET);
+      request.user = decoded;
+    } catch (error) {
+      // 忽略错误，当作未登录处理
     }
   }
-  next();
-}
 
-module.exports = { generateToken, authRequired, adminRequired, authOptional, JWT_SECRET };
+  return { error: false };
+}

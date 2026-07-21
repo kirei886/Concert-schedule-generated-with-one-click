@@ -1,141 +1,143 @@
 /**
- * 认证路由：注册/登录/个人信息
+ * 认证路由 - Workers 版本
+ * 示例实现
  */
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const { body, validationResult } = require('express-validator');
-const db = require('../db');
-const { generateToken, authRequired } = require('../middleware/auth');
 
-const router = express.Router();
+import { Router } from 'itty-router';
+import { authRequired } from '../middleware/auth.js';
+import { generateToken } from '../utils/jwt.js';
+import { dbGet, dbRun, jsonResponse, errorResponse, successResponse } from '../utils/db.js';
 
-router.post('/register',
-  [
-    body('username').isLength({ min: 2, max: 20 }).withMessage('用户名2-20个字符'),
-    body('email').isEmail().withMessage('邮箱格式不正确'),
-    body('password').isLength({ min: 6 }).withMessage('密码至少6位'),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ code: 400, message: errors.array()[0].msg, data: null });
+const router = Router({ base: '/api/auth' });
+
+// 注册
+router.post('/register', async (request) => {
+  try {
+    const body = await request.json();
+    const { username, email, password, nickname } = body;
+
+    // 验证输入
+    if (!username || !email || !password) {
+      return errorResponse('请填写完整信息', 40001, 400);
     }
 
-    const { username, email, password, nickname } = req.body;
+    // 检查用户是否存在
+    const existing = await request.env.DB.prepare(
+      'SELECT id FROM users WHERE username = ? OR email = ?'
+    ).bind(username, email).first();
 
-    const existing = db.prepare('SELECT id FROM users WHERE username = ? OR email = ?').get(username, email);
     if (existing) {
-      return res.status(409).json({ code: 409, message: '用户名或邮箱已存在', data: null });
+      return errorResponse('用户名或邮箱已存在', 40901, 409);
     }
 
-    const hash = bcrypt.hashSync(password, 10);
-    const result = db.prepare(`
+    // 密码加密 - 使用 bcryptjs（需要安装）
+    // 注意：Workers 中 bcryptjs 可能有性能问题
+    // 生产环境建议使用 Web Crypto API
+    const bcrypt = await import('bcryptjs');
+    const hash = await bcrypt.hash(password, 10);
+
+    // 插入用户
+    const result = await request.env.DB.prepare(`
       INSERT INTO users (username, email, password_hash, nickname)
       VALUES (?, ?, ?, ?)
-    `).run(username, email, hash, nickname || username);
+    `).bind(username, email, hash, nickname || username).run();
 
-    const user = db.prepare('SELECT id, username, email, nickname, avatar_url, role FROM users WHERE id = ?').get(result.lastInsertRowid);
-    const token = generateToken(user);
+    // 获取新用户
+    const user = await request.env.DB.prepare(
+      'SELECT id, username, email, nickname, role FROM users WHERE id = ?'
+    ).bind(result.meta.last_row_id).first();
 
-    res.json({ code: 0, data: { token, user } });
+    // 生成 Token
+    const token = await generateToken(user, request.env.JWT_SECRET);
+
+    return successResponse({ token, user }, '注册成功');
+  } catch (error) {
+    console.error('Register error:', error);
+    return errorResponse('注册失败', 50001, 500);
   }
-);
-
-router.post('/login',
-  [
-    body('account').notEmpty().withMessage('请输入用户名或邮箱'),
-    body('password').notEmpty().withMessage('请输入密码'),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ code: 400, message: errors.array()[0].msg, data: null });
-    }
-
-    const { account, password } = req.body;
-    const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(account, account);
-    if (!user) {
-      return res.status(401).json({ code: 401, message: '用户不存在', data: null });
-    }
-
-    if (!bcrypt.compareSync(password, user.password_hash)) {
-      return res.status(401).json({ code: 401, message: '密码错误', data: null });
-    }
-
-    const safeUser = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      nickname: user.nickname,
-      avatar_url: user.avatar_url,
-      phone: user.phone,
-      fan_color: user.fan_color,
-      fan_name: user.fan_name,
-      fan_slogan: user.fan_slogan,
-      role: user.role,
-    };
-    const token = generateToken(safeUser);
-
-    res.json({ code: 0, data: { token, user: safeUser } });
-  }
-);
-
-router.get('/me', authRequired, (req, res) => {
-  const user = db.prepare(`
-    SELECT id, username, email, nickname, avatar_url, phone,
-           fan_color, fan_name, fan_slogan, role, created_at
-    FROM users WHERE id = ?
-  `).get(req.user.id);
-  if (!user) {
-    return res.status(404).json({ code: 404, message: '用户不存在', data: null });
-  }
-  res.json({ code: 0, data: user });
 });
 
-router.put('/profile', authRequired,
-  [
-    body('nickname').optional().isLength({ max: 30 }),
-    body('phone').optional().isLength({ max: 20 }),
-  ],
-  (req, res) => {
-    const { nickname, avatar_url, phone, fan_color, fan_name, fan_slogan } = req.body;
-    db.prepare(`
-      UPDATE users SET
-        nickname = COALESCE(?, nickname),
-        avatar_url = COALESCE(?, avatar_url),
-        phone = COALESCE(?, phone),
-        fan_color = COALESCE(?, fan_color),
-        fan_name = COALESCE(?, fan_name),
-        fan_slogan = COALESCE(?, fan_slogan),
-        updated_at = datetime('now','localtime')
-      WHERE id = ?
-    `).run(nickname, avatar_url, phone, fan_color, fan_name, fan_slogan, req.user.id);
+// 登录
+router.post('/login', async (request) => {
+  try {
+    const body = await request.json();
+    const { account, password } = body;
 
-    const user = db.prepare(`
-      SELECT id, username, email, nickname, avatar_url, phone,
-             fan_color, fan_name, fan_slogan, role
-      FROM users WHERE id = ?
-    `).get(req.user.id);
-    res.json({ code: 0, data: user });
-  }
-);
-
-router.put('/password', authRequired,
-  [
-    body('old_password').notEmpty(),
-    body('new_password').isLength({ min: 6 }).withMessage('新密码至少6位'),
-  ],
-  (req, res) => {
-    const { old_password, new_password } = req.body;
-    const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
-    if (!bcrypt.compareSync(old_password, user.password_hash)) {
-      return res.status(400).json({ code: 400, message: '原密码错误', data: null });
+    if (!account || !password) {
+      return errorResponse('请输入账号和密码', 40001, 400);
     }
-    const hash = bcrypt.hashSync(new_password, 10);
-    db.prepare('UPDATE users SET password_hash = ?, updated_at = datetime(\'now\',\'localtime\') WHERE id = ?')
-      .run(hash, req.user.id);
-    res.json({ code: 0, message: '密码修改成功' });
-  }
-);
 
-module.exports = router;
+    // 查询用户
+    const user = await request.env.DB.prepare(
+      'SELECT * FROM users WHERE username = ? OR email = ?'
+    ).bind(account, account).first();
+
+    if (!user) {
+      return errorResponse('账号或密码错误', 40001, 400);
+    }
+
+    // 验证密码
+    const bcrypt = await import('bcryptjs');
+    const valid = await bcrypt.compare(password, user.password_hash);
+
+    if (!valid) {
+      return errorResponse('账号或密码错误', 40001, 400);
+    }
+
+    // 生成 Token
+    const token = await generateToken({
+      id: user.id,
+      username: user.username,
+      role: user.role
+    }, request.env.JWT_SECRET);
+
+    // 记录登录
+    await request.env.DB.prepare(`
+      INSERT INTO login_records (user_id, login_ip, user_agent, status)
+      VALUES (?, ?, ?, 'success')
+    `).bind(
+      user.id,
+      request.headers.get('CF-Connecting-IP') || '',
+      request.headers.get('User-Agent') || ''
+    ).run();
+
+    return successResponse({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        nickname: user.nickname,
+        role: user.role
+      }
+    }, '登录成功');
+  } catch (error) {
+    console.error('Login error:', error);
+    return errorResponse('登录失败', 50001, 500);
+  }
+});
+
+// 获取当前用户信息
+router.get('/me', async (request) => {
+  const authResult = await authRequired(request);
+  if (authResult.error) {
+    return jsonResponse(authResult.body, authResult.status);
+  }
+
+  try {
+    const user = await request.env.DB.prepare(
+      'SELECT id, username, email, nickname, avatar_url, phone, fan_color, fan_name, fan_slogan, role FROM users WHERE id = ?'
+    ).bind(request.user.id).first();
+
+    if (!user) {
+      return errorResponse('用户不存在', 40401, 404);
+    }
+
+    return successResponse(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    return errorResponse('获取用户信息失败', 50001, 500);
+  }
+});
+
+export default router;

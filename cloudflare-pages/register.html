@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 - 演唱会行程</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .auth-container { max-width: 400px; margin: 40px auto; padding: 0 20px; }
+    .auth-card { background: white; border-radius: 20px; box-shadow: var(--shadow); padding: 40px 32px; }
+    .auth-title { text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 8px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .auth-subtitle { text-align: center; font-size: 13px; color: var(--text-sub); margin-bottom: 32px; }
+    .auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-sub); }
+    .auth-footer a { color: var(--primary); text-decoration: none; font-weight: 500; }
+    .btn-submit { width: 100%; padding: 14px; font-size: 15px; margin-top: 8px; }
+    .error-msg { color: var(--error); font-size: 13px; margin-top: 8px; text-align: center; display: none; }
+  </style>
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-card">
+      <h1 class="auth-title">加入我们</h1>
+      <p class="auth-subtitle">创建账号，开启你的演唱会之旅</p>
+      <form id="registerForm" onsubmit="return handleRegister(event)">
+        <div class="form-group">
+          <label class="form-label">用户名</label>
+          <input type="text" class="form-input" id="username" required minlength="2" maxlength="20" placeholder="2-20个字符" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <input type="email" class="form-input" id="email" required placeholder="your@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">昵称（可选）</label>
+          <input type="text" class="form-input" id="nickname" maxlength="30" placeholder="展示给其他用户的名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">密码</label>
+          <input type="password" class="form-input" id="password" required minlength="6" placeholder="至少6位" autocomplete="new-password">
+        </div>
+        <div id="errorMsg" class="error-msg"></div>
+        <button type="submit" class="btn-primary btn-submit">注册</button>
+      </form>
+      <div class="auth-footer">
+        已有账号？<a href="/login.html">去登录</a>
+      </div>
+    </div>
+  </div>
+  <script src="/js/api-config.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    (async function() {
+      const user = await Auth.getUser();
+      if (user) window.location.href = '/';
+    })();
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const nickname = document.getElementById('nickname').value.trim();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('errorMsg');
+      errorEl.style.display = 'none';
+
+      try {
+        // 使用 Auth.apiPost 而不是直接 fetch
+        const data = await Auth.apiPost('/api/auth/register', { username, email, password, nickname });
+        if (data && data.code === 0) {
+          Auth.setToken(data.data.token);
+          window.location.href = '/';
+        } else {
+          errorEl.textContent = data?.message || '注册失败';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = '网络错误，请重试';
+        errorEl.style.display = 'block';
+      }
+      return false;
+    }
+  </script>
+</body>
+</html>

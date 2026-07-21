@@ -2203,7 +2203,16 @@ async function apiGet(path, params) {
   const qs = new URLSearchParams(params).toString();
   const url = path + (qs ? '?' + qs : '');
   try {
-    const resp = await fetch(url);
+    // 自动添加 token（如果存在）
+    const headers = {};
+    if (typeof Auth !== 'undefined' && Auth.getToken) {
+      const token = Auth.getToken();
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+    }
+
+    const resp = await fetch(url, { headers });
     const text = await resp.text();
     try { return JSON.parse(text); }
     catch { return { code: -1, message: '服务器返回异常', data: null }; }
@@ -2214,9 +2223,18 @@ async function apiGet(path, params) {
 
 async function apiPost(path, body) {
   try {
+    // 自动添加 token（如果存在）
+    const headers = { 'Content-Type': 'application/json' };
+    if (typeof Auth !== 'undefined' && Auth.getToken) {
+      const token = Auth.getToken();
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+    }
+
     const resp = await fetch(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify(body),
     });
     const text = await resp.text();

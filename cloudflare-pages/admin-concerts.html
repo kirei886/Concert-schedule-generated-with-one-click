@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>票务管理 - 管理员后台</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <style>
+    .page-container { max-width: 1000px; margin: 0 auto; padding: 24px 20px 60px; }
+    .page-title { font-size: 24px; font-weight: 800; margin-bottom: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
+    .search-box { display: flex; gap: 8px; flex-wrap: wrap; }
+    .search-input { padding: 10px 16px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; width: 180px; }
+    .search-select { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; background: white; }
+    .btn-add { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; transition: opacity 0.2s; }
+    .btn-add:hover { opacity: 0.9; }
+    .concert-list { display: flex; flex-direction: column; gap: 12px; }
+    .concert-card { background: white; border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px;
+      transition: all 0.3s ease; border: 1.5px solid transparent; }
+    .concert-card:hover { box-shadow: var(--shadow-hover); border-color: var(--primary-light); }
+    .concert-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .concert-info { flex: 1; }
+    .concert-artist { font-size: 16px; font-weight: 600; color: var(--text-main); }
+    .concert-tour { font-size: 13px; color: var(--text-sub); margin-left: 8px; }
+    .concert-meta { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--text-sub); }
+    .concert-meta-item { display: flex; align-items: center; gap: 4px; }
+    .concert-actions { display: flex; gap: 8px; }
+    .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 16px; border: 1.5px solid var(--border); cursor: pointer; transition: all 0.2s; }
+    .btn-sm:hover { background: var(--bg); }
+    .btn-edit { color: var(--primary); border-color: var(--primary-light); }
+    .btn-delete { color: #ef4444; border-color: #fecaca; }
+    .badge { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+    .badge-upcoming { background: #dbeafe; color: #2563eb; }
+    .badge-selling { background: #d1fae5; color: #059669; }
+    .badge-finished { background: #f3f4f6; color: #9ca3af; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 16px; width: 90%; max-width: 500px; padding: 24px; position: relative; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+    .modal-close { position: absolute; top: 16px; right: 16px; font-size: 20px; cursor: pointer; color: var(--text-sub); }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px; }
+    .form-input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; box-sizing: border-box; }
+    .form-input:focus { outline: none; border-color: var(--primary); }
+    .form-row { display: flex; gap: 12px; }
+    .form-row .form-group { flex: 1; }
+    .btn-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .pagination { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 20px; }
+    .page-btn { padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status-filter { display: flex; gap: 8px; }
+    .filter-tag { padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1.5px solid var(--border); background: white; }
+    .filter-tag.active { background: var(--primary); color: white; border-color: var(--primary); }
+  </style>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="page-container">
+    <h1 class="page-title">🎫 票务管理</h1>
+    
+    <div class="toolbar">
+      <div class="search-box">
+        <input type="text" class="search-input" id="searchArtist" placeholder="搜索艺人">
+        <input type="text" class="search-input" id="searchCity" placeholder="搜索城市">
+        <select class="search-select" id="searchStatus">
+          <option value="">全部状态</option>
+          <option value="upcoming">即将开唱</option>
+          <option value="selling">热卖中</option>
+          <option value="finished">已结束</option>
+        </select>
+        <button class="btn-sm" onclick="loadConcerts()">搜索</button>
+        <button class="btn-sm" onclick="resetSearch()">重置</button>
+      </div>
+      <button class="btn-add" onclick="showAddModal()">+ 添加演唱会</button>
+    </div>
+
+    <div class="status-filter">
+      <div class="filter-tag active" onclick="filterByStatus('')">全部</div>
+      <div class="filter-tag" onclick="filterByStatus('upcoming')">即将开唱</div>
+      <div class="filter-tag" onclick="filterByStatus('selling')">热卖中</div>
+      <div class="filter-tag" onclick="filterByStatus('finished')">已结束</div>
+    </div>
+
+    <div id="concertList" class="concert-list">
+      <div class="empty-state">加载中...</div>
+    </div>
+
+    <div id="pagination" class="pagination"></div>
+  </div>
+
+  <div id="editModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-close" onclick="closeModal()">×</div>
+      <h2 class="modal-title" id="modalTitle">添加演唱会</h2>
+      <form id="concertForm" onsubmit="event.preventDefault(); saveConcert();">
+        <input type="hidden" id="editId">
+        <div class="form-group">
+          <label class="form-label">艺人 *</label>
+          <input type="text" class="form-input" id="editArtist" placeholder="如：周杰伦" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">巡演名称</label>
+          <input type="text" class="form-input" id="editTourName" placeholder="如：嘉年华世界巡回演唱会">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">城市 *</label>
+            <input type="text" class="form-input" id="editCity" placeholder="如：上海" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">演出日期 *</label>
+            <input type="date" class="form-input" id="editDate" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">场馆</label>
+          <input type="text" class="form-input" id="editVenue" placeholder="如：上海体育场">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">开始时间</label>
+            <input type="time" class="form-input" id="editStartTime" value="19:00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">状态</label>
+            <select class="form-input" id="editStatus">
+              <option value="upcoming">即将开唱</option>
+              <option value="selling">热卖中</option>
+              <option value="finished">已结束</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">标签</label>
+          <input type="text" class="form-input" id="editTag" placeholder="如：火爆、热卖中、预售中">
+        </div>
+        <button class="btn-submit">保存</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/api-config.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    let currentUser = null;
+    let currentPage = 1;
+    let currentStatus = '';
+
+    (async function() {
+      currentUser = await initPage();
+      if (!currentUser) {
+        window.location.href = '/login.html?redirect=/admin-concerts.html';
+        return;
+      }
+      if (currentUser.role !== 'admin') {
+        showToast('无管理员权限', 'error');
+        setTimeout(() => window.location.href = '/', 1500);
+        return;
+      }
+      loadConcerts();
+    })();
+
+    async function loadConcerts(page = 1) {
+      currentPage = page;
+      const artist = document.getElementById('searchArtist').value.trim();
+      const city = document.getElementById('searchCity').value.trim();
+      const status = currentStatus || document.getElementById('searchStatus').value;
+      
+      let url = `/api/concerts?page=${page}&limit=20`;
+      if (artist) url += `&artist=${encodeURIComponent(artist)}`;
+      if (city) url += `&city=${encodeURIComponent(city)}`;
+      if (status) url += `&status=${status}`;
+      
+      const data = await Auth.apiGet(url);
+      const container = document.getElementById('concertList');
+
+      if (!data || data.code !== 0) {
+        container.innerHTML = `<div class="empty-state">加载失败，请重试</div>`;
+        return;
+      }
+
+      if (!data.data.list.length) {
+        container.innerHTML = `<div class="empty-state">暂无演唱会数据</div>`;
+        document.getElementById('pagination').innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = data.data.list.map(c => `
+        <div class="concert-card">
+          <div class="concert-header">
+            <div class="concert-info">
+              <div>
+                <span class="concert-artist">${escapeHtml(c.artist)}</span>
+                <span class="concert-tour">「${escapeHtml(c.tour_name || '')}」</span>
+                <span class="badge badge-${c.status}">${getStatusText(c.status)}</span>
+              </div>
+              <div class="concert-meta">
+                ${c.city ? `<div class="concert-meta-item">📍 ${escapeHtml(c.city)}</div>` : ''}
+                ${c.venue ? `<div class="concert-meta-item">🎤 ${escapeHtml(c.venue)}</div>` : ''}
+                ${c.concert_date ? `<div class="concert-meta-item">📅 ${formatDate(c.concert_date)} ${escapeHtml(c.start_time || '')}</div>` : ''}
+                ${c.tag ? `<div class="concert-meta-item">🏷️ ${escapeHtml(c.tag)}</div>` : ''}
+              </div>
+            </div>
+            <div class="concert-actions">
+              <button class="btn-sm btn-edit" onclick="showEditModal(${c.id})">编辑</button>
+              <button class="btn-sm btn-delete" onclick="deleteConcert(${c.id})">删除</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      renderPagination(data.data.total, page, data.data.limit);
+    }
+
+    function getStatusText(status) {
+      const map = { 'upcoming': '即将开唱', 'selling': '热卖中', 'finished': '已结束' };
+      return map[status] || status;
+    }
+
+    function renderPagination(total, page, limit) {
+      const pages = Math.ceil(total / limit);
+      const container = document.getElementById('pagination');
+      
+      if (pages <= 1) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = `<button class="page-btn" onclick="loadConcerts(${page - 1})" ${page <= 1 ? 'disabled' : ''}>上一页</button>`;
+      
+      for (let i = 1; i <= pages; i++) {
+        if (i === page) {
+          html += `<button class="page-btn active">${i}</button>`;
+        } else if (i <= 3 || i > pages - 2 || (i >= page - 1 && i <= page + 1)) {
+          html += `<button class="page-btn" onclick="loadConcerts(${i})">${i}</button>`;
+        } else if (i === 4 || i === pages - 1) {
+          html += `<span style="color:var(--text-sub);padding:0 4px;">...</span>`;
+        }
+      }
+      
+      html += `<button class="page-btn" onclick="loadConcerts(${page + 1})" ${page >= pages ? 'disabled' : ''}>下一页</button>`;
+      container.innerHTML = html;
+    }
+
+    function filterByStatus(status) {
+      currentStatus = status;
+      document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      loadConcerts(1);
+    }
+
+    function resetSearch() {
+      document.getElementById('searchArtist').value = '';
+      document.getElementById('searchCity').value = '';
+      document.getElementById('searchStatus').value = '';
+      currentStatus = '';
+      document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+      document.querySelector('.filter-tag').classList.add('active');
+      loadConcerts(1);
+    }
+
+    function showAddModal() {
+      document.getElementById('modalTitle').textContent = '添加演唱会';
+      document.getElementById('concertForm').reset();
+      document.getElementById('editId').value = '';
+      document.getElementById('editStartTime').value = '19:00';
+      document.getElementById('editStatus').value = 'selling';
+      document.getElementById('editModal').classList.add('show');
+    }
+
+    function showEditModal(id) {
+      Auth.apiGet(`/api/concerts/${id}`).then(data => {
+        if (!data || data.code !== 0) {
+          showToast('获取数据失败', 'error');
+          return;
+        }
+        const c = data.data;
+        document.getElementById('modalTitle').textContent = '编辑演唱会';
+        document.getElementById('editId').value = c.id;
+        document.getElementById('editArtist').value = c.artist || '';
+        document.getElementById('editTourName').value = c.tour_name || '';
+        document.getElementById('editCity').value = c.city || '';
+        document.getElementById('editDate').value = c.concert_date || '';
+        document.getElementById('editVenue').value = c.venue || '';
+        document.getElementById('editStartTime').value = c.start_time || '19:00';
+        document.getElementById('editStatus').value = c.status || 'selling';
+        document.getElementById('editTag').value = c.tag || '';
+        document.getElementById('editModal').classList.add('show');
+      });
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').classList.remove('show');
+    }
+
+    async function saveConcert() {
+      const id = document.getElementById('editId').value;
+      const data = {
+        artist: document.getElementById('editArtist').value.trim(),
+        tour_name: document.getElementById('editTourName').value.trim(),
+        city: document.getElementById('editCity').value.trim(),
+        venue: document.getElementById('editVenue').value.trim(),
+        concert_date: document.getElementById('editDate').value,
+        start_time: document.getElementById('editStartTime').value,
+        status: document.getElementById('editStatus').value,
+        tag: document.getElementById('editTag').value.trim(),
+      };
+
+      if (!data.artist || !data.city || !data.concert_date) {
+        showToast('请填写必填项（艺人、城市、日期）', 'error');
+        return;
+      }
+
+      let result;
+      if (id) {
+        result = await Auth.apiPut(`/api/concerts/${id}`, data);
+      } else {
+        result = await Auth.apiPost('/api/concerts', data);
+      }
+
+      if (result && result.code === 0) {
+        showToast(id ? '修改成功' : '添加成功', 'success');
+        closeModal();
+        loadConcerts(currentPage);
+      } else {
+        showToast(result?.message || '保存失败', 'error');
+      }
+    }
+
+    async function deleteConcert(id) {
+      if (!confirm('确定删除这场演唱会吗？')) return;
+      const data = await Auth.apiDelete(`/api/concerts/${id}`);
+      if (data && data.code === 0) {
+        showToast('已删除', 'success');
+        loadConcerts(currentPage);
+      } else {
+        showToast('删除失败', 'error');
+      }
+    }
+  </script>
+</body>
+</html>

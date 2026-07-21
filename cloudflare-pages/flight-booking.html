@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>机票预订 - 演唱会行程生成器</title>
+  <style>
+    :root {
+      --primary: #7C3AED;
+      --primary-light: #A78BFA;
+      --accent: #EC4899;
+      --bg-gradient: linear-gradient(180deg, #f0eef5 0%, #f8f9fa 30%, #ffffff 100%);
+      --card-bg: #ffffff;
+      --text-main: #1a1a2e;
+      --text-sub: #6b7280;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --radius: 16px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif;
+      background: var(--bg-gradient);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+      padding-bottom: 100px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      padding: 20px 0 30px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flight-summary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      padding: 20px;
+      border-radius: var(--radius);
+      margin-bottom: 24px;
+    }
+    .flight-summary .route {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .flight-summary .details {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .flight-summary .price-box {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .flight-summary .total-price {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .form-group label .required {
+      color: #ef4444;
+      margin-left: 4px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+    .form-group .hint {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 6px;
+    }
+
+    .error-msg {
+      background: #fee;
+      color: #c00;
+      padding: 12px 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      z-index: 100;
+    }
+    .bottom-bar-content {
+      max-width: 700px;
+      margin: 0 auto;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .price-info {
+      flex: 1;
+    }
+    .price-label {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+    .price-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .btn-submit {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .loading-overlay.show {
+      display: flex;
+    }
+    .loading-box {
+      background: white;
+      padding: 32px;
+      border-radius: var(--radius);
+      text-align: center;
+    }
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📋 填写订单信息</h1>
+    </div>
+
+    <div class="flight-summary" id="flightSummary">
+      <!-- 航班信息将通过 JS 填充 -->
+    </div>
+
+    <div class="card">
+      <div id="errorMsg" class="error-msg" style="display: none;"></div>
+
+      <form id="bookingForm">
+        <div class="section-title">
+          👤 乘客信息
+        </div>
+
+        <div class="form-group">
+          <label>姓名 <span class="required">*</span></label>
+          <input type="text" id="passengerName" placeholder="请输入乘客姓名（与证件一致）" required>
+        </div>
+
+        <div class="form-group">
+          <label>证件类型 <span class="required">*</span></label>
+          <select id="idType" required>
+            <option value="id_card">身份证</option>
+            <option value="passport">护照</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>证件号码 <span class="required">*</span></label>
+          <input type="text" id="idNumber" placeholder="请输入证件号码" required>
+          <div class="hint">请确保证件号码正确，办理值机时需要验证</div>
+        </div>
+
+        <div class="form-group">
+          <label>手机号码 <span class="required">*</span></label>
+          <input type="tel" id="passengerPhone" placeholder="用于接收航班信息" required pattern="^1[3-9]\d{9}$">
+        </div>
+
+        <div class="section-title" style="margin-top: 32px;">
+          📞 联系人信息
+        </div>
+
+        <div class="form-group">
+          <label>联系人姓名 <span class="required">*</span></label>
+          <input type="text" id="contactName" placeholder="请输入联系人姓名" required>
+        </div>
+
+        <div class="form-group">
+          <label>联系人手机 <span class="required">*</span></label>
+          <input type="tel" id="contactPhone" placeholder="用于接收订单信息" required pattern="^1[3-9]\d{9}$">
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bottom-bar-content">
+      <div class="price-info">
+        <div class="price-label">总价</div>
+        <div class="price-value" id="totalPrice">¥0</div>
+      </div>
+      <button class="btn-submit" id="submitBtn" onclick="submitBooking()">
+        确认预订
+      </button>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-box">
+      <div class="loading-spinner"></div>
+      <div>正在创建订单...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'https://concert-itinerary-api.music-tripay.workers.dev';
+
+    // 获取选中的航班信息
+    const selectedFlight = JSON.parse(localStorage.getItem('selectedFlight'));
+
+    if (!selectedFlight) {
+      alert('未找到航班信息');
+      window.location.href = 'flights.html';
+    }
+
+    // 显示航班摘要
+    function displayFlightSummary() {
+      const segment = selectedFlight.segments && selectedFlight.segments[0] ? selectedFlight.segments[0] : selectedFlight;
+      const depTime = segment.dep_time || segment.depart_time || '00:00';
+      const arrTime = segment.arr_time || segment.arrival_time || '00:00';
+      const flightNo = segment.flight_no || selectedFlight.flight_no || 'Unknown';
+      const price = selectedFlight.price || selectedFlight.total_price || 0;
+
+      const summaryHTML = `
+        <div class="route">${selectedFlight.searchParams.originName} → ${selectedFlight.searchParams.destinationName}</div>
+        <div class="details">
+          ${flightNo} | ${selectedFlight.searchParams.date} | ${depTime} - ${arrTime}
+        </div>
+        <div class="price-box">
+          <div>总价</div>
+          <div class="total-price">¥${price}</div>
+        </div>
+      `;
+
+      document.getElementById('flightSummary').innerHTML = summaryHTML;
+      document.getElementById('totalPrice').textContent = `¥${price}`;
+    }
+
+    displayFlightSummary();
+
+    // 获取 Token
+    function getToken() {
+      return localStorage.getItem('token');
+    }
+
+    // 提交预订
+    async function submitBooking() {
+      const errorMsg = document.getElementById('errorMsg');
+      errorMsg.style.display = 'none';
+
+      // 验证登录
+      const token = getToken();
+      if (!token) {
+        alert('请先登录');
+        window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+        return;
+      }
+
+      // 获取表单数据
+      const passengerName = document.getElementById('passengerName').value.trim();
+      const idType = document.getElementById('idType').value;
+      const idNumber = document.getElementById('idNumber').value.trim();
+      const passengerPhone = document.getElementById('passengerPhone').value.trim();
+      const contactName = document.getElementById('contactName').value.trim();
+      const contactPhone = document.getElementById('contactPhone').value.trim();
+
+      // 验证
+      if (!passengerName || !idNumber || !passengerPhone || !contactName || !contactPhone) {
+        errorMsg.textContent = '请填写所有必填项';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      // 验证手机号
+      const phoneReg = /^1[3-9]\d{9}$/;
+      if (!phoneReg.test(passengerPhone) || !phoneReg.test(contactPhone)) {
+        errorMsg.textContent = '请输入正确的手机号码';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      // 显示加载
+      document.getElementById('loadingOverlay').classList.add('show');
+      document.getElementById('submitBtn').disabled = true;
+
+      try {
+        const segment = selectedFlight.segments && selectedFlight.segments[0] ? selectedFlight.segments[0] : selectedFlight;
+        const flightNo = segment.flight_no || selectedFlight.flight_no || 'Unknown';
+        const depTime = segment.dep_time || segment.depart_time || '';
+        const arrTime = segment.arr_time || segment.arrival_time || '';
+
+        // 创建订单
+        const response = await fetch(`${API_BASE}/api/orders`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            item_type: 'flight',
+            item_name: `${selectedFlight.searchParams.originName}-${selectedFlight.searchParams.destinationName} ${flightNo}`,
+            offer_id: selectedFlight.offerId,
+            search_offer_id: selectedFlight.searchId,
+            passengers: [
+              {
+                name: passengerName,
+                id_type: idType,
+                id_number: idNumber,
+                phone: passengerPhone
+              }
+            ],
+            contact: {
+              name: contactName,
+              phone: contactPhone
+            },
+            flight_no: flightNo,
+            departure_time: `${selectedFlight.searchParams.date} ${depTime}`,
+            arrival_time: `${selectedFlight.searchParams.date} ${arrTime}`
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.code === 0 && data.data) {
+          // 订单创建成功，跳转到支付页面
+          window.location.href = `payment.html?order_id=${data.data.id}`;
+        } else {
+          throw new Error(data.message || '创建订单失败');
+        }
+      } catch (error) {
+        console.error('预订失败:', error);
+        errorMsg.textContent = error.message || '预订失败，请稍后重试';
+        errorMsg.style.display = 'block';
+        document.getElementById('loadingOverlay').classList.remove('show');
+        document.getElementById('submitBtn').disabled = false;
+      }
+    }
+
+    // 自动填充联系人信息
+    document.getElementById('passengerName').addEventListener('blur', function() {
+      if (this.value && !document.getElementById('contactName').value) {
+        document.getElementById('contactName').value = this.value;
+      }
+    });
+
+    document.getElementById('passengerPhone').addEventListener('blur', function() {
+      if (this.value && !document.getElementById('contactPhone').value) {
+        document.getElementById('contactPhone').value = this.value;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>网站配置 - 管理后台</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <script src="/js/api-config.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    let settings = {};
+    let categories = [];
+
+    async function init() {
+      const user = await AdminUtils.initAdminPage('网站配置', 'settings');
+      if (!user) return;
+
+      await loadSettings();
+      renderSettings();
+    }
+
+    async function loadSettings() {
+      const res = await AdminUtils.apiRequest('/api/settings');
+      if (res && res.code === 0) {
+        settings = {};
+        res.data.forEach(s => {
+          if (!settings[s.category]) {
+            settings[s.category] = [];
+          }
+          settings[s.category].push(s);
+        });
+        categories = Object.keys(settings);
+      }
+    }
+
+    function renderSettings() {
+      const content = document.getElementById('adminContent');
+
+      const categoryNames = {
+        general: '基础配置',
+        seo: 'SEO配置',
+        third_party: '第三方API',
+        payment: '支付配置'
+      };
+
+      let html = '';
+
+      categories.forEach(cat => {
+        html += `
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <h3 class="admin-card-title">${categoryNames[cat] || cat}</h3>
+            </div>
+            <form onsubmit="saveCategory(event, '${cat}')">
+              ${settings[cat].map(s => renderSettingField(s)).join('')}
+              <div style="margin-top: 24px;">
+                <button type="submit" class="admin-btn admin-btn-primary">保存配置</button>
+              </div>
+            </form>
+          </div>
+        `;
+      });
+
+      content.innerHTML = html;
+    }
+
+    function renderSettingField(setting) {
+      const inputId = `setting_${setting.id}`;
+
+      let inputHTML = '';
+
+      if (setting.setting_type === 'boolean') {
+        inputHTML = `
+          <select id="${inputId}" class="admin-form-select" data-key="${setting.setting_key}">
+            <option value="true" ${setting.setting_value === 'true' ? 'selected' : ''}>开启</option>
+            <option value="false" ${setting.setting_value === 'false' ? 'selected' : ''}>关闭</option>
+          </select>
+        `;
+      } else if (setting.setting_type === 'number') {
+        inputHTML = `
+          <input type="number" id="${inputId}" class="admin-form-input"
+                 value="${AdminUtils.escapeHtml(setting.setting_value)}"
+                 data-key="${setting.setting_key}">
+        `;
+      } else if (setting.setting_type === 'text' && setting.setting_value.length > 50) {
+        inputHTML = `
+          <textarea id="${inputId}" class="admin-form-textarea"
+                    data-key="${setting.setting_key}">${AdminUtils.escapeHtml(setting.setting_value)}</textarea>
+        `;
+      } else {
+        inputHTML = `
+          <input type="text" id="${inputId}" class="admin-form-input"
+                 value="${AdminUtils.escapeHtml(setting.setting_value)}"
+                 data-key="${setting.setting_key}">
+        `;
+      }
+
+      return `
+        <div class="admin-form-group">
+          <label class="admin-form-label">${setting.setting_key}</label>
+          ${inputHTML}
+          ${setting.description ? `<div class="admin-form-hint">${AdminUtils.escapeHtml(setting.description)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    async function saveCategory(event, category) {
+      event.preventDefault();
+
+      const form = event.target;
+      const updates = [];
+
+      const inputs = form.querySelectorAll('[data-key]');
+      inputs.forEach(input => {
+        updates.push({
+          setting_key: input.getAttribute('data-key'),
+          setting_value: input.value
+        });
+      });
+
+      const res = await AdminUtils.apiRequest('/api/settings', {
+        method: 'PUT',
+        body: { updates }
+      });
+
+      if (res && res.code === 0) {
+        AdminUtils.showToast('保存成功', 'success');
+        await loadSettings();
+      } else {
+        AdminUtils.showToast(res?.message || '保存失败', 'error');
+      }
+    }
+
+    // 页面加载时初始化
+    init();
+  </script>
+</body>
+</html>

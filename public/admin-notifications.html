@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>通知管理 - 管理后台</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+  <script>
+    let notifications = [];
+    let currentPage = 1;
+    let pagination = {};
+
+    async function init() {
+      const user = await AdminUtils.initAdminPage('通知管理', 'notifications');
+      if (!user) return;
+
+      await loadNotifications();
+      renderNotifications();
+    }
+
+    async function loadNotifications(page = 1) {
+      currentPage = page;
+      const res = await AdminUtils.apiRequest(`/api/notifications/admin/all?page=${page}&limit=50`);
+
+      if (res && res.code === 0) {
+        notifications = res.data.notifications;
+        pagination = res.data.pagination;
+        renderNotifications();
+      }
+    }
+
+    function renderNotifications() {
+      const content = document.getElementById('adminContent');
+
+      let html = `
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3 class="admin-card-title">通知记录</h3>
+            <button class="admin-btn admin-btn-primary" onclick="showSendModal()">
+              ➕ 发送通知
+            </button>
+          </div>
+
+          ${notifications.length === 0 ? AdminUtils.renderEmpty('暂无通知记录', '🔔') : `
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>接收用户</th>
+                  <th>类型</th>
+                  <th>标题</th>
+                  <th>内容</th>
+                  <th>状态</th>
+                  <th>发送时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${notifications.map(n => `
+                  <tr>
+                    <td>${AdminUtils.escapeHtml(n.nickname || n.username)}</td>
+                    <td>${renderTypeBadge(n.type)}</td>
+                    <td><strong>${AdminUtils.escapeHtml(n.title)}</strong></td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                      ${AdminUtils.escapeHtml(n.content)}
+                    </td>
+                    <td>${n.is_read ? AdminUtils.renderBadge('已读', 'info') : AdminUtils.renderBadge('未读', 'warning')}</td>
+                    <td>${AdminUtils.formatRelativeTime(n.created_at)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div id="paginationContainer"></div>
+          `}
+        </div>
+
+        <!-- 发送通知模态框 -->
+        <div id="sendModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto;">
+          <div style="max-width: 600px; margin: 80px auto; background: white; border-radius: 12px; padding: 30px;">
+            <h3 style="margin-bottom: 20px;">发送通知</h3>
+            <form onsubmit="sendNotification(event)">
+              <div class="admin-form-group">
+                <label class="admin-form-label">接收范围 <span class="required">*</span></label>
+                <select id="notifyScope" class="admin-form-select" onchange="toggleUserInput()" required>
+                  <option value="all">全站用户</option>
+                  <option value="single">指定用户ID</option>
+                </select>
+              </div>
+
+              <div class="admin-form-group" id="userIdGroup" style="display: none;">
+                <label class="admin-form-label">用户ID <span class="required">*</span></label>
+                <input type="number" id="notifyUserId" class="admin-form-input">
+                <div class="admin-form-hint">单个用户ID，如：1</div>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">通知类型 <span class="required">*</span></label>
+                <select id="notifyType" class="admin-form-select" required>
+                  <option value="system">系统通知</option>
+                  <option value="order">订单通知</option>
+                  <option value="message">留言通知</option>
+                  <option value="concert">演唱会通知</option>
+                </select>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">标题 <span class="required">*</span></label>
+                <input type="text" id="notifyTitle" class="admin-form-input" required maxlength="100">
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">内容 <span class="required">*</span></label>
+                <textarea id="notifyContent" class="admin-form-textarea" required maxlength="500"></textarea>
+              </div>
+
+              <div class="admin-form-group">
+                <label class="admin-form-label">链接地址（可选）</label>
+                <input type="text" id="notifyLink" class="admin-form-input" placeholder="例如：/orders.html">
+              </div>
+
+              <div style="display: flex; gap: 10px; margin-top: 24px;">
+                <button type="submit" class="admin-btn admin-btn-primary">发送</button>
+                <button type="button" class="admin-btn admin-btn-default" onclick="closeModal()">取消</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+
+      content.innerHTML = html;
+
+      if (notifications.length > 0) {
+        AdminUtils.renderPagination(
+          document.getElementById('paginationContainer'),
+          pagination,
+          loadNotifications
+        );
+      }
+    }
+
+    function renderTypeBadge(type) {
+      const typeMap = {
+        system: { label: '系统', type: 'info' },
+        order: { label: '订单', type: 'success' },
+        message: { label: '留言', type: 'warning' },
+        concert: { label: '演唱会', type: 'error' }
+      };
+      const t = typeMap[type] || { label: type, type: 'info' };
+      return AdminUtils.renderBadge(t.label, t.type);
+    }
+
+    function showSendModal() {
+      document.getElementById('notifyScope').value = 'all';
+      document.getElementById('notifyUserId').value = '';
+      document.getElementById('notifyType').value = 'system';
+      document.getElementById('notifyTitle').value = '';
+      document.getElementById('notifyContent').value = '';
+      document.getElementById('notifyLink').value = '';
+      document.getElementById('userIdGroup').style.display = 'none';
+      document.getElementById('sendModal').style.display = 'block';
+    }
+
+    function toggleUserInput() {
+      const scope = document.getElementById('notifyScope').value;
+      const userIdGroup = document.getElementById('userIdGroup');
+      const userIdInput = document.getElementById('notifyUserId');
+
+      if (scope === 'single') {
+        userIdGroup.style.display = 'block';
+        userIdInput.required = true;
+      } else {
+        userIdGroup.style.display = 'none';
+        userIdInput.required = false;
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('sendModal').style.display = 'none';
+    }
+
+    async function sendNotification(event) {
+      event.preventDefault();
+
+      const scope = document.getElementById('notifyScope').value;
+      const userId = document.getElementById('notifyUserId').value;
+
+      const data = {
+        type: document.getElementById('notifyType').value,
+        title: document.getElementById('notifyTitle').value,
+        content: document.getElementById('notifyContent').value,
+        link_url: document.getElementById('notifyLink').value
+      };
+
+      if (scope === 'single' && userId) {
+        data.user_id = parseInt(userId);
+      }
+      // 全站通知不需要指定user_id，后端会自动处理
+
+      const res = await AdminUtils.apiRequest('/api/notifications', {
+        method: 'POST',
+        body: data
+      });
+
+      if (res && res.code === 0) {
+        AdminUtils.showToast('发送成功', 'success');
+        closeModal();
+        await loadNotifications(currentPage);
+      } else {
+        AdminUtils.showToast(res?.message || '发送失败', 'error');
+      }
+    }
+
+    // 页面加载时初始化
+    init();
+  </script>
+</body>
+</html>
