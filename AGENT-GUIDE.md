@@ -65,13 +65,191 @@
 
 ---
 
-## 4. 部署 / Deployment
+## 4. 从零开始配置 / Setup From Scratch
 
-**前置**: 需已安装 `wrangler` CLI 并登录 Cloudflare 账号。首次拉取仓库后，复制配置模板并填入自己的值：
+### 4.1 安装工具
+
 ```bash
-cp wrangler.toml.example wrangler.toml   # 然后填入 D1 database_id、JWT_SECRET、LONGXIA_TOKEN
+# 安装 Node.js (需 18+)
+# 访问 https://nodejs.org 下载安装
+
+# 安装 Wrangler CLI
+npm install -g wrangler
+
+# 登录 Cloudflare
+wrangler login
 ```
-（`wrangler.toml` 含密钥，已在 `.gitignore` 中忽略，不会进仓库。）
+
+### 4.2 创建 D1 数据库
+
+```bash
+# 创建数据库（记下返回的 database_id）
+wrangler d1 create concert-itinerary-db
+
+# 输出示例:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "concert-itinerary-db"
+# database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  ← 复制这个 ID
+```
+
+### 4.3 配置 wrangler.toml
+
+```bash
+# 1. 复制模板
+cp wrangler.toml.example wrangler.toml
+
+# 2. 编辑 wrangler.toml，填入：
+#    - database_id: 上一步创建的 D1 数据库 ID
+#    - JWT_SECRET: 随机字符串（如 openssl rand -base64 32）
+#    - LONGXIA_TOKEN: 龙虾开放平台 Token（需在龙虾官网申请）
+```
+
+### 4.4 初始化数据库表结构
+
+```bash
+# 执行建表 SQL（在项目根目录）
+wrangler d1 execute concert-itinerary-db --remote --file=./migrations/init-schema.sql
+
+# 如果没有 migrations/init-schema.sql，手动执行以下建表语句：
+wrangler d1 execute concert-itinerary-db --remote --command="
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  email TEXT UNIQUE,
+  role TEXT DEFAULT 'user',
+  real_name TEXT,
+  phone TEXT,
+  id_card TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_no TEXT UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL,
+  itinerary_id INTEGER,
+  item_type TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  item_detail TEXT,
+  item_snapshot TEXT,
+  unit_price REAL NOT NULL,
+  quantity INTEGER DEFAULT 1,
+  total_amount REAL NOT NULL,
+  status TEXT DEFAULT 'pending',
+  pay_method TEXT,
+  pay_url TEXT,
+  travel_date TEXT,
+  contact_name TEXT,
+  contact_phone TEXT,
+  longxia_order_no TEXT,
+  pnr TEXT,
+  flight_no TEXT,
+  departure_time TEXT,
+  arrival_time TEXT,
+  offer_id TEXT,
+  search_offer_id TEXT,
+  passenger_name TEXT,
+  passenger_id_card TEXT,
+  passenger_phone TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS concerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  artist TEXT NOT NULL,
+  venue TEXT NOT NULL,
+  venue_lat REAL,
+  venue_lng REAL,
+  city TEXT NOT NULL,
+  date TEXT NOT NULL,
+  price_range TEXT,
+  ticket_url TEXT,
+  status TEXT DEFAULT 'upcoming',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS itineraries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  concert_id INTEGER,
+  title TEXT NOT NULL,
+  depart_city TEXT,
+  arrival_city TEXT,
+  travel_date TEXT,
+  return_date TEXT,
+  budget REAL,
+  notes TEXT,
+  status TEXT DEFAULT 'draft',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (concert_id) REFERENCES concerts(id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  artist TEXT,
+  content TEXT NOT NULL,
+  likes INTEGER DEFAULT 0,
+  top INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+"
+```
+
+### 4.5 配置前端 API 地址
+
+前端代码里硬编码了后端域名，需要替换成你自己的 Workers 域名。
+
+**方法 1（推荐）**: 部署后端后，用真实域名批量替换：
+```bash
+# 1. 先部署后端获取域名
+wrangler deploy
+# 输出：https://concert-itinerary-api.你的账号.workers.dev
+
+# 2. 批量替换前端 API 地址（Windows 用 PowerShell）
+# Linux/Mac:
+find cloudflare-pages -name "*.html" -exec sed -i 's|concert-itinerary-api.music-tripay.workers.dev|concert-itinerary-api.你的账号.workers.dev|g' {} +
+
+# Windows PowerShell:
+Get-ChildItem -Path cloudflare-pages -Filter *.html -Recurse | ForEach-Object {
+  (Get-Content $_.FullName) -replace 'concert-itinerary-api.music-tripay.workers.dev', 'concert-itinerary-api.你的账号.workers.dev' | Set-Content $_.FullName
+}
+```
+
+**方法 2（手动）**: 搜索 `concert-itinerary-api.music-tripay.workers.dev` 并逐个替换（约出现在 10+ 个文件）。
+
+### 4.6 创建 Cloudflare Pages 项目
+
+```bash
+# 首次部署前端（会自动创建 Pages 项目）
+wrangler pages deploy cloudflare-pages --project-name=你的项目名 --commit-dirty=true
+
+# 后续部署（项目已存在）
+wrangler pages deploy cloudflare-pages --commit-dirty=true
+```
+
+### 4.7 验证部署
+
+```bash
+# 后端健康检查
+curl https://你的workers域名/api/health
+
+# 前端访问
+# 打开浏览器访问 Cloudflare Pages 给的域名
+```
+
+---
+
+## 5. 部署 / Deployment
+
+**前置**: 已完成上述 §4 的配置。
+
 
 
 ```bash
