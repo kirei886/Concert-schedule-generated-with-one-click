@@ -281,6 +281,362 @@ router.post('/api/hotel-search', async (request, env) => {
   });
 });
 
+// 酒店房型详情（获取产品级 offer_id）
+router.post('/api/hotel-rooms', async (request, env) => {
+  try {
+    // 验证登录
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return json({ code: 401, message: '请先登录', data: null }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { search_offer_id } = body;
+
+    if (!search_offer_id) {
+      return json({ code: 400, message: '缺少 search_offer_id 参数', data: null }, { status: 400 });
+    }
+
+    console.log('[房型查询] search_offer_id:', search_offer_id);
+
+    // 调用龙虾酒店房型接口
+    const response = await proxyPost('/open/v1/hotel/rooms', {
+      search_offer_id
+    }, env.LONGXIA_TOKEN);
+
+    const responseText = await response.text();
+
+    // 记录响应
+    if (response.ok) {
+      try {
+        const data = JSON.parse(responseText);
+        if (data.code === 0 && data.data && data.data.room_types && data.data.room_types.length > 0) {
+          const firstProduct = data.data.room_types[0].products?.[0];
+          if (firstProduct) {
+            console.log('[房型查询] 成功，第一个产品 offer_id:', firstProduct.offer_id?.substring(0, 30) + '...');
+          }
+        }
+      } catch (e) {
+        // 忽略解析错误
+      }
+    } else {
+      console.error('[房型查询] 失败，状态:', response.status);
+    }
+
+    return new Response(responseText, {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  } catch (err) {
+    return json({ code: 500, message: '获取酒店房型失败: ' + err.message, data: null }, { status: 500 });
+  }
+});
+
+// 创建酒店订单
+router.post('/api/hotel-order-create', async (request, env) => {
+  try {
+    // 验证登录
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return json({ code: 401, message: '请先登录', data: null }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = JSON.parse(atob(token));
+    } catch {
+      return json({ code: 401, message: 'token 无效', data: null }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { offer_id, out_trade_no, contact, guests, hotel_id } = body;
+
+    // 验证必填字段
+    if (!offer_id || !out_trade_no) {
+      return json({ code: 400, message: '缺少 offer_id 或 out_trade_no', data: null }, { status: 400 });
+    }
+
+    if (!contact || !contact.name || !contact.phone) {
+      return json({ code: 400, message: '联系人姓名和手机号为必填项', data: null }, { status: 400 });
+    }
+
+    if (!guests || guests.length === 0 || !guests[0].name) {
+      return json({ code: 400, message: '请填写入住人信息', data: null }, { status: 400 });
+    }
+
+    // 构建请求体
+    const requestBody = {
+      offer_id: offer_id,
+      out_trade_no: out_trade_no,
+      contact: {
+        name: contact.name,
+        phone: contact.phone,
+        email: contact.email || ''
+      },
+      guests: guests.map(g => ({
+        name: g.name,
+        id_number: g.id_number || '',
+        id_type: g.id_type || 'ID_CARD'
+      })),
+      pay_mode: 'user_pay'
+    };
+
+    // ========== 如果 offer_id 是 search_offer_id，先获取产品级 offer_id ==========
+    let finalOfferId = offer_id;
+
+    // 检测是否是 search_offer_id (通常以 hs_ 开头且较短)
+    if (offer_id && (offer_id.startsWith('hs_') || offer_id.length < 50)) {
+      console.log('特价酒店：检测到 search_offer_id，调用房型详情接口获取产品级 offer_id...');
+      console.log('原 search_offer_id:', offer_id);
+
+      try {
+        // 使用正确的房型详情接口
+        const roomsRes = await fetch('https://api.longxiachuxing.com/open/v1/hotel/rooms', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.LONGXIA_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            search_offer_id: offer_id
+          })
+        });
+
+        console.log('房型详情接口HTTP状态:', roomsRes.status);
+
+        if (!roomsRes.ok) {
+          const errorText = await roomsRes.text();
+          console.error('房型详情接口错误内容:', errorText);
+
+          // 尝试解析错误响应
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { code: roomsRes.status, message: errorText };
+          }
+
+          console.error('房型详情接口错误:', errorData);
+
+          // 根据错误码返回友好提示
+          if (errorData.code === 40005) {
+            // 房型已售罄
+            return json({
+              code: 40005,
+              message: '抱歉，该酒店房间已被预订完，请选择其他酒店',
+              data: {
+                error: errorData.message,
+                suggestion: '建议：1) 选择其他酒店 2) 更改入住日期',
+                request_id: errorData.request_id
+              }
+            }, { status: 400 });
+          }
+
+          if (errorData.code === 40002 || errorData.code === 40003) {
+            // offer_id 已过期
+            return json({
+              code: errorData.code,
+              message: '酒店预订链接已过期，请重新搜索',
+              data: {
+                error: errorData.message,
+                suggestion: '建议：重新搜索酒店后在10分钟内完成预订',
+                request_id: errorData.request_id
+              }
+            }, { status: 400 });
+          }
+
+          // 其他错误，直接返回，不再尝试兜底
+          return json({
+            code: errorData.code || 500,
+            message: errorData.message || '查询房型失败，请稍后重试',
+            data: {
+              error: errorData.message,
+              suggestion: '建议：稍后重试或选择其他酒店',
+              request_id: errorData.request_id
+            }
+          }, { status: 400 });
+        }
+
+        const roomsData = await roomsRes.json();
+        console.log('房型详情接口响应:', JSON.stringify(roomsData, null, 2));
+
+        if (roomsData.code === 0 && roomsData.data) {
+          // 从 room_types 中找到产品级 offer_id
+          const roomTypes = roomsData.data.room_types || [];
+
+          if (roomTypes.length === 0) {
+            console.error('房型详情接口未返回房型信息');
+            return json({
+              code: 400,
+              message: '该酒店暂无可预订房型',
+              data: {
+                suggestion: '建议：选择其他酒店或更改入住日期'
+              }
+            }, { status: 400 });
+          }
+
+          // 选择第一个房型的第一个产品（通常是最便宜的）
+          let foundOfferId = null;
+
+          for (const roomType of roomTypes) {
+            const products = roomType.products || [];
+            if (products.length > 0) {
+              // 找到第一个有 offer_id 的产品
+              const product = products.find(p => p.offer_id);
+              if (product) {
+                foundOfferId = product.offer_id;
+                console.log('找到产品级 offer_id，房型:', roomType.room_name, '产品:', product.product_name, '价格:', product.price);
+                break;
+              }
+            }
+          }
+
+          if (foundOfferId) {
+            finalOfferId = foundOfferId;
+            console.log('成功获取产品级 offer_id:', finalOfferId.substring(0, 50) + '...');
+          } else {
+            console.error('房型详情接口未返回任何产品 offer_id');
+            return json({
+              code: 400,
+              message: '该酒店暂无可预订房型',
+              data: {
+                suggestion: '建议：选择其他酒店或更改入住日期'
+              }
+            }, { status: 400 });
+          }
+        } else {
+          // 详情接口业务逻辑失败
+          console.error('获取产品级 offer_id 失败:', roomsData);
+
+          let errorMessage = '查询房型失败，请重新搜索酒店';
+          if (roomsData.code === 50001 || roomsData.code === 40002) {
+            errorMessage = 'offer_id 已过期或已失效，请重新搜索酒店';
+          } else if (roomsData.message) {
+            errorMessage = roomsData.message;
+          }
+
+          return json({
+            code: roomsData.code || 500,
+            message: errorMessage,
+            data: {
+              error: roomsData.message,
+              suggestion: '建议：1) 重新搜索酒店 2) 搜索后尽快预订（10分钟内）',
+              request_id: roomsData.request_id
+            }
+          }, { status: 400 });
+        }
+      } catch (err) {
+        console.error('调用房型详情接口失败:', err);
+        console.error('错误详情:', err.message, err.stack);
+
+        // 网络错误或其他异常，返回友好提示，不再尝试下单
+        return json({
+          code: 500,
+          message: '查询房型失败，请稍后重试',
+          data: {
+            error: err.message,
+            suggestion: '建议：稍后重试或联系客服'
+          }
+        }, { status: 500 });
+      }
+    }
+
+    // 更新请求体使用实时 offer_id
+    requestBody.offer_id = finalOfferId;
+
+    console.log('创建酒店订单请求:', JSON.stringify(requestBody, null, 2));
+
+    // 调用龙虾酒店订单创建接口
+    const longxiaRes = await fetch('https://api.longxiachuxing.com/open/v1/hotel/order/create', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.LONGXIA_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    const longxiaData = await longxiaRes.json();
+    console.log('龙虾酒店订单响应:', JSON.stringify(longxiaData, null, 2));
+
+    if (longxiaData.code === 0) {
+      const hotelOrder = longxiaData.data;
+
+      // 可选：保存到数据库
+      try {
+        const orderNo = out_trade_no;
+        await env.DB.prepare(`
+          INSERT INTO orders (
+            order_no, user_id, item_type, item_name,
+            total_amount, status, longxia_order_no, pay_url,
+            contact_name, contact_phone
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          orderNo,
+          decoded.id,
+          'hotel',
+          hotelOrder.hotel_name || '酒店预订',
+          hotelOrder.total_amount || 0,
+          'pending',
+          hotelOrder.order_no || '',
+          hotelOrder.checkout_url || '',
+          contact.name,
+          contact.phone
+        ).run();
+      } catch (dbErr) {
+        console.error('保存酒店订单到数据库失败:', dbErr);
+        // 继续返回，数据库保存失败不影响订单创建
+      }
+
+      return json({
+        code: 0,
+        message: '酒店订单创建成功',
+        data: {
+          order_no: hotelOrder.order_no,
+          checkout_url: hotelOrder.checkout_url,
+          pay_url: hotelOrder.checkout_url,
+          hotel_name: hotelOrder.hotel_name,
+          check_in: hotelOrder.check_in,
+          check_out: hotelOrder.check_out,
+          total_amount: hotelOrder.total_amount
+        }
+      });
+    } else {
+      // 返回龙虾 API 的错误信息
+      console.error('龙虾酒店预订失败:', longxiaData);
+
+      let errorMessage = longxiaData.message || '创建酒店订单失败';
+      let suggestion = '';
+
+      if (longxiaData.code === 50001) {
+        errorMessage = '酒店预订失败';
+        suggestion = '可能原因：1) offer_id 已过期 2) 房间已售罄 3) 价格已变动。建议重新搜索酒店。';
+      }
+
+      return json({
+        code: longxiaData.code || 500,
+        message: errorMessage,
+        data: {
+          error: longxiaData.message,
+          suggestion: suggestion,
+          request_id: longxiaData.request_id,
+          details: longxiaData.data || null
+        }
+      }, { status: 400 });
+    }
+  } catch (err) {
+    console.error('创建酒店订单失败:', err);
+    return json({
+      code: 500,
+      message: '创建酒店订单失败，请稍后重试',
+      data: {
+        error: err.message
+      }
+    }, { status: 500 });
+  }
+});
+
 // 特价机票（模拟数据）
 router.get('/api/deal-flights', async (request, env) => {
   const mockFlights = [
@@ -397,6 +753,18 @@ router.post('/api/auth/register', async (request, env) => {
       return json({ code: 400, message: '邮箱已被注册', data: null }, { status: 400 });
     }
 
+    // 先测试 token 生成（避免插入数据库后 token 生成失败导致脏数据）
+    // 使用临时 ID 测试
+    const encoder = new TextEncoder();
+    const testTokenData = JSON.stringify({ id: 0, username: username, role: 'user' });
+    const testBytes = encoder.encode(testTokenData);
+    try {
+      // 测试是否能成功编码
+      btoa(String.fromCharCode(...testBytes));
+    } catch (encodeErr) {
+      return json({ code: 400, message: '用户名包含不支持的字符', data: null }, { status: 400 });
+    }
+
     // 插入新用户（密码应该加密，这里简化处理）
     const result = await env.DB.prepare(
       'INSERT INTO users (username, email, password_hash, nickname, role) VALUES (?, ?, ?, ?, ?)'
@@ -404,8 +772,10 @@ router.post('/api/auth/register', async (request, env) => {
 
     const userId = result.meta.last_row_id;
 
-    // 生成 token
-    const token = btoa(JSON.stringify({ id: userId, username: username, role: 'user' }));
+    // 生成真正的 token
+    const tokenData = JSON.stringify({ id: userId, username: username, role: 'user' });
+    const bytes = encoder.encode(tokenData);
+    const token = btoa(String.fromCharCode(...bytes));
 
     return json({
       code: 0,
@@ -449,8 +819,11 @@ router.post('/api/auth/login', async (request, env) => {
       return json({ code: 400, message: '账号或密码错误', data: null }, { status: 400 });
     }
 
-    // 简化：生成简单 token（生产环境应使用 JWT）
-    const token = btoa(JSON.stringify({ id: user.id, username: user.username, role: user.role }));
+    // 生成 token - 使用 TextEncoder 处理中文
+    const encoder = new TextEncoder();
+    const tokenData = JSON.stringify({ id: user.id, username: user.username, role: user.role });
+    const bytes = encoder.encode(tokenData);
+    const token = btoa(String.fromCharCode(...bytes));
 
     return json({
       code: 0,
@@ -531,9 +904,158 @@ router.get('/api/concerts', async (request, env) => {
 // 热门演唱会（前端需要这个接口）
 router.get('/api/hot-concerts', async (request, env) => {
   try {
+    // 获取用户ID（如果已登录）
+    let userId = null;
+    const authHeader = request.headers.get('Authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userId = payload.userId;
+      } catch {}
+    }
+
     const result = await env.DB.prepare(
       'SELECT * FROM concerts WHERE status = ? ORDER BY concert_date ASC LIMIT 10'
     ).bind('selling').all();
+
+    let concerts = result.results || [];
+
+    // 如果用户已登录，查询收藏状态
+    if (userId && concerts.length > 0) {
+      const concertIds = concerts.map(c => c.id).join(',');
+      const favorites = await env.DB.prepare(
+        `SELECT concert_id FROM favorites WHERE user_id = ? AND concert_id IN (${concertIds})`
+      ).bind(userId).all();
+
+      const favSet = new Set(favorites.results.map(f => f.concert_id));
+      concerts = concerts.map(c => ({
+        ...c,
+        is_favorited: favSet.has(c.id)
+      }));
+    }
+
+    return json({
+      code: 0,
+      message: 'success',
+      data: concerts
+    });
+  } catch (err) {
+    return json({ code: 500, message: '获取热门演唱会失败', data: [] }, { status: 500 });
+  }
+});
+
+// 添加收藏
+router.post('/api/favorites', async (request, env) => {
+  try {
+    console.log('[Favorites] POST /api/favorites called');
+
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('[Favorites] No auth header');
+      return json({ code: 401, message: '请先登录', data: null }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = JSON.parse(atob(token));
+    } catch {
+      console.log('[Favorites] Token decode failed');
+      return json({ code: 401, message: 'token 无效', data: null }, { status: 401 });
+    }
+
+    const userId = decoded.id;
+    console.log('[Favorites] userId:', userId);
+
+    const body = await request.json();
+    const { concert_id } = body;
+    console.log('[Favorites] concert_id:', concert_id, 'type:', typeof concert_id);
+
+    if (!concert_id) {
+      console.log('[Favorites] Missing concert_id');
+      return json({ code: 400, message: '缺少演唱会ID', data: null }, { status: 400 });
+    }
+
+    // 检查是否已收藏
+    const existing = await env.DB.prepare(
+      'SELECT id FROM favorites WHERE user_id = ? AND concert_id = ?'
+    ).bind(userId, concert_id).first();
+    console.log('[Favorites] existing:', existing);
+
+    if (existing) {
+      console.log('[Favorites] Already favorited');
+      return json({ code: 0, message: '已收藏', data: null });
+    }
+
+    // 添加收藏
+    console.log('[Favorites] Inserting into DB...');
+    const result = await env.DB.prepare(
+      'INSERT INTO favorites (user_id, concert_id) VALUES (?, ?)'
+    ).bind(userId, concert_id).run();
+    console.log('[Favorites] Insert result:', result);
+
+    return json({ code: 0, message: '收藏成功', data: null });
+  } catch (err) {
+    console.error('[Favorites] Error:', err);
+    return json({ code: 500, message: '收藏失败: ' + err.message, data: null }, { status: 500 });
+  }
+});
+
+// 取消收藏
+router.delete('/api/favorites/:concert_id', async (request, env) => {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return json({ code: 401, message: '请先登录', data: null }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = JSON.parse(atob(token));
+    } catch {
+      return json({ code: 401, message: 'token 无效', data: null }, { status: 401 });
+    }
+
+    const userId = decoded.id;
+    const concert_id = request.params.concert_id;
+
+    await env.DB.prepare(
+      'DELETE FROM favorites WHERE user_id = ? AND concert_id = ?'
+    ).bind(userId, concert_id).run();
+
+    return json({ code: 0, message: '取消收藏成功', data: null });
+  } catch (err) {
+    return json({ code: 500, message: '取消收藏失败: ' + err.message, data: null }, { status: 500 });
+  }
+});
+
+// 获取我的收藏列表
+router.get('/api/favorites', async (request, env) => {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return json({ code: 401, message: '请先登录', data: null }, { status: 401 });
+    }
+
+    const token = authHeader.substring(7);
+    let decoded;
+    try {
+      decoded = JSON.parse(atob(token));
+    } catch {
+      return json({ code: 401, message: 'token 无效', data: null }, { status: 401 });
+    }
+
+    const userId = decoded.id;
+
+    const result = await env.DB.prepare(`
+      SELECT c.*, f.created_at as favorited_at
+      FROM favorites f
+      JOIN concerts c ON f.concert_id = c.id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+    `).bind(userId).all();
 
     return json({
       code: 0,
@@ -541,7 +1063,7 @@ router.get('/api/hot-concerts', async (request, env) => {
       data: result.results || []
     });
   } catch (err) {
-    return json({ code: 500, message: '获取热门演唱会失败', data: [] }, { status: 500 });
+    return json({ code: 500, message: '获取收藏列表失败', data: [] }, { status: 500 });
   }
 });
 
@@ -1009,7 +1531,9 @@ router.post('/api/orders', async (request, env) => {
       contact,
       flight_no,
       departure_time,
-      arrival_time
+      arrival_time,
+      // 酒店相关字段
+      guests
     } = body;
 
     // ========== 如果是机票订单，调用龙虾预订接口 ==========
@@ -1262,6 +1786,306 @@ router.post('/api/orders', async (request, env) => {
         return json({
           code: 500,
           message: '创建机票订单失败，请稍后重试',
+          data: {
+            error: err.message,
+            details: err.stack
+          }
+        }, { status: 500 });
+      }
+    }
+
+    // ========== 如果是酒店订单，调用龙虾预订接口 ==========
+    if (item_type === 'hotel' && offer_id) {
+      try {
+        console.log('=== 酒店订单创建开始 ===');
+        console.log('收到的原始数据:', JSON.stringify(body, null, 2));
+
+        const orderNo = generateOrderNo();
+
+        // 确保 contact 对象格式正确
+        const contactData = {
+          name: contact?.name || contact_name || guests?.[0]?.name || '',
+          phone: contact?.phone || contact_phone || guests?.[0]?.phone || '',
+          email: contact?.email || contact_email || body.contact_email || ''
+        };
+
+        // 验证必填字段
+        if (!contactData.name || !contactData.phone) {
+          return json({
+            code: 400,
+            message: '联系人姓名和手机号为必填项',
+            data: null
+          }, { status: 400 });
+        }
+
+        // 验证入住人信息
+        if (!guests || guests.length === 0) {
+          return json({
+            code: 400,
+            message: '请填写入住人信息',
+            data: null
+          }, { status: 400 });
+        }
+
+        // 格式化入住人信息
+        const formattedGuests = guests.map(g => {
+          const guest = { name: g.name };
+          if (g.id_number) {
+            guest.id_number = g.id_number;
+            guest.id_type = g.id_type || 'ID_CARD';
+          }
+          return guest;
+        });
+
+        // ========== 如果 offer_id 是 search_offer_id，先获取产品级 offer_id ==========
+        let finalOfferId = offer_id;
+
+        // 检测是否是 search_offer_id (以 hs_ 开头)
+        // 产品级 offer_id 以 ho_ 开头，不需要转换
+        if (offer_id && offer_id.startsWith('hs_')) {
+          console.log('检测到 search_offer_id，调用房型详情接口获取产品级 offer_id...');
+          console.log('原 search_offer_id:', offer_id);
+
+          try {
+            // 使用正确的房型详情接口
+            const roomsRes = await fetch('https://api.longxiachuxing.com/open/v1/hotel/rooms', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${env.LONGXIA_TOKEN}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                search_offer_id: offer_id
+              })
+            });
+
+            console.log('房型详情接口HTTP状态:', roomsRes.status);
+
+            if (!roomsRes.ok) {
+              const errorText = await roomsRes.text();
+              console.error('房型详情接口错误内容:', errorText);
+
+              // 尝试解析错误响应
+              let errorData;
+              try {
+                errorData = JSON.parse(errorText);
+              } catch {
+                errorData = { code: roomsRes.status, message: errorText };
+              }
+
+              console.error('房型详情接口错误:', errorData);
+
+              // 根据错误码返回友好提示
+              if (errorData.code === 40005) {
+                // 房型已售罄
+                return json({
+                  code: 40005,
+                  message: '抱歉，该酒店房间已被预订完，请选择其他酒店',
+                  data: {
+                    error: errorData.message,
+                    suggestion: '建议：1) 选择其他酒店 2) 更改入住日期',
+                    request_id: errorData.request_id
+                  }
+                }, { status: 400 });
+              }
+
+              if (errorData.code === 40002 || errorData.code === 40003) {
+                // offer_id 已过期
+                return json({
+                  code: errorData.code,
+                  message: '酒店预订链接已过期，请重新搜索',
+                  data: {
+                    error: errorData.message,
+                    suggestion: '建议：重新搜索酒店后在10分钟内完成预订',
+                    request_id: errorData.request_id
+                  }
+                }, { status: 400 });
+              }
+
+              // 其他错误，直接返回，不再尝试兜底
+              return json({
+                code: errorData.code || 500,
+                message: errorData.message || '查询房型失败，请稍后重试',
+                data: {
+                  error: errorData.message,
+                  suggestion: '建议：稍后重试或选择其他酒店',
+                  request_id: errorData.request_id
+                }
+              }, { status: 400 });
+            }
+
+            const roomsData = await roomsRes.json();
+            console.log('房型详情接口响应:', JSON.stringify(roomsData, null, 2));
+
+            if (roomsData.code === 0 && roomsData.data) {
+              // 从 room_types 中找到产品级 offer_id
+              const roomTypes = roomsData.data.room_types || [];
+
+              if (roomTypes.length === 0) {
+                console.error('房型详情接口未返回房型信息');
+                throw new Error('No room types available');
+              }
+
+              // 选择第一个房型的第一个产品（通常是最便宜的）
+              let foundOfferId = null;
+
+              for (const roomType of roomTypes) {
+                const products = roomType.products || [];
+                if (products.length > 0) {
+                  // 找到第一个有 offer_id 的产品
+                  const product = products.find(p => p.offer_id);
+                  if (product) {
+                    foundOfferId = product.offer_id;
+                    console.log('找到产品级 offer_id，房型:', roomType.room_name, '产品:', product.product_name, '价格:', product.price);
+                    break;
+                  }
+                }
+              }
+
+              if (foundOfferId) {
+                finalOfferId = foundOfferId;
+                console.log('成功获取产品级 offer_id:', finalOfferId.substring(0, 50) + '...');
+              } else {
+                console.error('房型详情接口未返回任何产品 offer_id');
+                return json({
+                  code: 400,
+                  message: '该酒店暂无可预订房型',
+                  data: {
+                    suggestion: '建议：选择其他酒店或更改入住日期'
+                  }
+                }, { status: 400 });
+              }
+            } else {
+              // 详情接口业务逻辑失败
+              console.error('获取产品级 offer_id 失败:', roomsData);
+
+              let errorMessage = '查询房型失败，请重新搜索酒店';
+              if (roomsData.code === 50001 || roomsData.code === 40002) {
+                errorMessage = 'offer_id 已过期或已失效，请重新搜索酒店';
+              } else if (roomsData.message) {
+                errorMessage = roomsData.message;
+              }
+
+              return json({
+                code: roomsData.code || 500,
+                message: errorMessage,
+                data: {
+                  error: roomsData.message,
+                  suggestion: '建议：1) 重新搜索酒店 2) 搜索后尽快预订（10分钟内）',
+                  request_id: roomsData.request_id
+                }
+              }, { status: 400 });
+            }
+          } catch (err) {
+            console.error('调用房型详情接口失败:', err);
+            console.error('错误详情:', err.message, err.stack);
+
+            // 网络错误或其他异常，返回友好提示，不再尝试下单
+            return json({
+              code: 500,
+              message: '查询房型失败，请稍后重试',
+              data: {
+                error: err.message,
+                suggestion: '建议：稍后重试或联系客服'
+              }
+            }, { status: 500 });
+          }
+        }
+
+        // 调用龙虾酒店订单创建接口
+        const requestBody = {
+          offer_id: finalOfferId,  // ✅ 使用实时的产品级 offer_id
+          out_trade_no: orderNo,
+          contact: contactData,
+          guests: formattedGuests,
+          pay_mode: 'user_pay'
+        };
+
+        console.log('龙虾酒店预订请求:', JSON.stringify(requestBody, null, 2));
+
+        const longxiaRes = await fetch('https://api.longxiachuxing.com/open/v1/hotel/order/create', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.LONGXIA_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        const longxiaData = await longxiaRes.json();
+        console.log('龙虾酒店预订响应:', JSON.stringify(longxiaData, null, 2));
+
+        if (longxiaData.code === 0) {
+          const hotelOrder = longxiaData.data;
+
+          // 保存到我们的数据库
+          const result = await env.DB.prepare(`
+            INSERT INTO orders (
+              order_no, user_id, itinerary_id, item_type, item_name,
+              total_amount, status, longxia_order_no, pay_url,
+              contact_name, contact_phone, travel_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            orderNo,
+            decoded.id,
+            itinerary_id || null,
+            'hotel',
+            hotelOrder.hotel_name || item_name,
+            hotelOrder.total_amount || unit_price,
+            'pending',
+            hotelOrder.order_no,
+            hotelOrder.checkout_url || '',
+            contactData.name,
+            contactData.phone,
+            travel_date || ''
+          ).run();
+
+          const orderId = result.meta.last_row_id;
+
+          return json({
+            code: 0,
+            message: '酒店订单创建成功',
+            data: {
+              id: orderId,
+              order_no: orderNo,
+              longxia_order_no: hotelOrder.order_no,
+              checkout_url: hotelOrder.checkout_url,
+              pay_url: hotelOrder.checkout_url,
+              hotel_name: hotelOrder.hotel_name,
+              check_in: hotelOrder.check_in,
+              check_out: hotelOrder.check_out,
+              total_amount: hotelOrder.total_amount
+            }
+          });
+        } else {
+          // 返回龙虾 API 的详细错误信息
+          console.error('龙虾酒店预订失败:', longxiaData);
+
+          let errorMessage = longxiaData.message || '创建酒店订单失败';
+          let suggestion = '';
+
+          if (longxiaData.code === 50001) {
+            errorMessage = '酒店预订失败';
+            suggestion = '可能原因：1) offer_id 已过期 2) 房间已售罄 3) 价格已变动。建议重新搜索酒店。';
+          }
+
+          return json({
+            code: longxiaData.code || 500,
+            message: errorMessage,
+            data: {
+              error: longxiaData.message,
+              suggestion: suggestion,
+              request_id: longxiaData.request_id,
+              details: longxiaData.data || null
+            }
+          }, { status: 400 });
+        }
+      } catch (err) {
+        console.error('创建酒店订单失败:', err);
+        console.error('错误堆栈:', err.stack);
+        return json({
+          code: 500,
+          message: '创建酒店订单失败，请稍后重试',
           data: {
             error: err.message,
             details: err.stack
@@ -1602,6 +2426,76 @@ router.post('/api/orders/:id/pay', async (request, env) => {
         }
       } catch (err) {
         console.error('机票订单支付失败:', err);
+        return json({ code: 500, message: '支付失败: ' + err.message, data: null }, { status: 500 });
+      }
+    }
+
+    // ========== 如果是龙虾酒店订单 ==========
+    if (order.longxia_order_no && order.item_type === 'hotel') {
+      try {
+        // 优先使用下单时保存的收银台链接
+        if (order.pay_url && order.pay_url.startsWith('http')) {
+          return json({
+            code: 0,
+            message: '请跳转至收银台完成支付',
+            data: {
+              order_id: parseInt(orderId),
+              pay_url: order.pay_url,
+              checkout_url: order.pay_url,
+              status: 'pending'
+            }
+          });
+        }
+
+        // 兜底：如果没有收银台链接，调用龙虾酒店支付接口
+        const pay_type = paymentMethod || 'wechat_h5';
+
+        console.log('酒店订单支付请求:', {
+          order_id: orderId,
+          order_no: order.longxia_order_no,
+          pay_type: pay_type
+        });
+
+        const longxiaRes = await fetch('https://api.longxiachuxing.com/open/v1/hotel/order/pay', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.LONGXIA_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            order_no: order.longxia_order_no,  // 注意：酒店用 order_no，机票用 system_no
+            pay_type: pay_type
+          })
+        });
+
+        const longxiaData = await longxiaRes.json();
+        console.log('龙虾酒店支付响应:', JSON.stringify(longxiaData, null, 2));
+
+        if (longxiaData.code === 0) {
+          // 更新支付方式
+          await env.DB.prepare(
+            'UPDATE orders SET pay_method = ? WHERE id = ?'
+          ).bind(pay_type, orderId).run();
+
+          return json({
+            code: 0,
+            message: '请完成支付',
+            data: {
+              order_id: parseInt(orderId),
+              pay_params: longxiaData.data.pay_params,
+              pay_type: longxiaData.data.pay_type,
+              status: 'pending'
+            }
+          });
+        } else {
+          return json({
+            code: longxiaData.code,
+            message: longxiaData.message || '支付失败',
+            data: null
+          }, { status: 400 });
+        }
+      } catch (err) {
+        console.error('酒店订单支付失败:', err);
         return json({ code: 500, message: '支付失败: ' + err.message, data: null }, { status: 500 });
       }
     }
@@ -2039,9 +2933,31 @@ router.delete('/api/itineraries/:id', async (request, env) => {
   }
 });
 
-// 404 处理
-router.all('*', () => {
-  return json({ code: 404, message: '接口不存在', data: null }, { status: 404 });
+// 静态文件托管（需要绑定 Assets）
+router.all('*', async (request, env) => {
+  const url = new URL(request.url);
+
+  // API 路由已经处理过了，如果到这里说明不是 API 请求
+  if (url.pathname.startsWith('/api/')) {
+    return json({ code: 404, message: '接口不存在', data: null }, { status: 404 });
+  }
+
+  // 尝试从 Assets 获取静态文件
+  try {
+    // 如果有 ASSETS 绑定，尝试获取静态文件
+    if (env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+
+    // 没有 ASSETS 绑定，返回提示
+    return new Response('Static files not configured. Please deploy frontend separately to Cloudflare Pages.', {
+      status: 404,
+      headers: { 'Content-Type': 'text/plain' }
+    });
+  } catch (err) {
+    console.error('Static file error:', err);
+    return new Response('File not found', { status: 404 });
+  }
 });
 
 // 导出 Worker

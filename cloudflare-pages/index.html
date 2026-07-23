@@ -1820,6 +1820,7 @@ const state = {
   userLongitude: '',
   userLatitude: '',
   venueInfo: null,       // {name, city, latitude, longitude, adcode, address}
+  hotelSearchLocation: null, // 酒店搜索位置（澳门演出时为珠海位置）{destination, adcode, latitude, longitude}
   departureAirportCode: '',
   arrivalAirportCode: '',
   arrivalCity: '',
@@ -1864,6 +1865,7 @@ function clearItinerary() {
   state.selected = { flight: null, train: null, bus: null, taxi: null, hotel: null };
   state.autoRecommended = false;
   state.venueInfo = null;
+  state.hotelSearchLocation = null;
   state.hotelsMeta = { total: 0, loaded: 0, radius: 5000, hasMore: false };
   state.noFeasibleTransport = false;
 
@@ -2456,13 +2458,17 @@ async function generateItinerary() {
       throw new Error('无法确定场馆所在城市，请尝试更精确的场馆名称');
     }
 
+    // 澳门特殊处理：演出在澳门时，酒店和机票使用珠海
+    const isMacao = venueCity.includes('澳门') || venueCity === 'Macau' || venueCity === 'Macao';
+    const searchCity = isMacao ? '珠海' : venueCity;
+
     // 步骤2: 查询出发城市和到达城市的机场代码 + 火车站名
-    showLoading('正在查询交通信息...', '搜索机场和火车站');
+    showLoading('正在查询交通信息...', isMacao ? '搜索机场和火车站（澳门演出，为您搜索珠海交通）' : '搜索机场和火车站');
     const [depAirport, arrAirport, depStation, arrStation] = await Promise.all([
       getCityAirportCode(depCity),
-      getCityAirportCode(venueCity),
+      getCityAirportCode(searchCity),
       findTrainStation(depCity),
-      findTrainStation(venueCity),
+      findTrainStation(searchCity),
     ]);
 
     // 步骤3: 并行查询机票、高铁、酒店
@@ -2514,20 +2520,51 @@ async function generateItinerary() {
 
     // 酒店级联分页查询：5km优先加载最多200家，不足则扩到10km/20km
     const hotelSearchPromise = (async () => {
+      // 澳门演出时搜索珠海酒店
+      let hotelSearchDestination = state.venueInfo.name;
+      let hotelAdcode = state.venueInfo.adcode;
+      let hotelLat = state.venueInfo.latitude;
+      let hotelLng = state.venueInfo.longitude;
+
+      if (isMacao) {
+        // 搜索珠海市中心作为酒店目的地
+        try {
+          const zhuhaiPoi = await apiGet('/api/poi-search', { keywords: '珠海市', city: '珠海', offset: 1 });
+          if (zhuhaiPoi.code === 0 && zhuhaiPoi.data && zhuhaiPoi.data.places && zhuhaiPoi.data.places.length > 0) {
+            const zhCity = zhuhaiPoi.data.places[0];
+            hotelSearchDestination = '珠海';
+            hotelAdcode = zhCity.adcode;
+            hotelLat = zhCity.latitude;
+            hotelLng = zhCity.longitude;
+          }
+        } catch (e) {
+          // 如果获取珠海信息失败，仍使用澳门场馆信息作为降级方案
+          console.warn('获取珠海位置信息失败，使用澳门场馆位置', e);
+        }
+      }
+
+      // 保存酒店搜索位置信息，供"加载更多"功能使用
+      state.hotelSearchLocation = {
+        destination: hotelSearchDestination,
+        adcode: hotelAdcode,
+        latitude: hotelLat,
+        longitude: hotelLng
+      };
+
       const baseBody = {
-        destination: state.venueInfo.name,
+        destination: hotelSearchDestination,
         check_in: date,
         check_out: getNextDate(date),
       };
-      if (state.venueInfo.adcode) baseBody.adcode = state.venueInfo.adcode;
+      if (hotelAdcode) baseBody.adcode = hotelAdcode;
 
-      const hasCoords = state.venueInfo.latitude && state.venueInfo.longitude;
+      const hasCoords = hotelLat && hotelLng;
 
       async function searchHotelPage(radius, page) {
         const body = { ...baseBody, sort_by: 'distance', page_size: 50, page };
         if (hasCoords) {
-          body.latitude = state.venueInfo.latitude;
-          body.longitude = state.venueInfo.longitude;
+          body.latitude = hotelLat;
+          body.longitude = hotelLng;
           body.radius = radius;
         }
         try {
@@ -3663,14 +3700,23 @@ async function loadMoreHotels() {
   if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
 
   const meta = state.hotelsMeta;
-  const baseBody = {
+
+  // 使用保存的酒店搜索位置（澳门演出时为珠海位置）
+  const searchLocation = state.hotelSearchLocation || {
     destination: state.venueInfo.name,
+    adcode: state.venueInfo.adcode,
+    latitude: state.venueInfo.latitude,
+    longitude: state.venueInfo.longitude
+  };
+
+  const baseBody = {
+    destination: searchLocation.destination,
     check_in: state.concertDate,
     check_out: getNextDate(state.concertDate),
   };
-  if (state.venueInfo.adcode) baseBody.adcode = state.venueInfo.adcode;
+  if (searchLocation.adcode) baseBody.adcode = searchLocation.adcode;
 
-  const hasCoords = state.venueInfo.latitude && state.venueInfo.longitude;
+  const hasCoords = searchLocation.latitude && searchLocation.longitude;
   const existingIds = new Set(state.results.hotels.map(h => h.hotel_id));
   let newHotels = [];
 
@@ -3681,8 +3727,8 @@ async function loadMoreHotels() {
     for (let page = 1; page <= 4; page++) {
       const body = {
         ...baseBody, sort_by: 'distance', page_size: 50, page,
-        latitude: state.venueInfo.latitude,
-        longitude: state.venueInfo.longitude,
+        latitude: searchLocation.latitude,
+        longitude: searchLocation.longitude,
         radius: nextRadius,
       };
       try {

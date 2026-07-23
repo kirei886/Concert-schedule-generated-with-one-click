@@ -54,7 +54,7 @@
       const data = await Auth.apiGet('/api/itineraries?page=1&limit=50');
       const container = document.getElementById('tripList');
 
-      if (!data || data.code !== 0 || !data.data.list.length) {
+      if (!data || data.code !== 0 || !data.data.itineraries || !data.data.itineraries.length) {
         container.innerHTML = `
           <div class="empty-state">
             <p style="font-size:16px;margin-bottom:8px;">还没有保存任何行程</p>
@@ -64,7 +64,7 @@
         return;
       }
 
-      container.innerHTML = data.data.list.map(trip => `
+      container.innerHTML = data.data.itineraries.map(trip => `
         <div class="trip-card" onclick="viewTrip(${trip.id})">
           <div class="trip-header">
             <div>

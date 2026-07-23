@@ -89,7 +89,11 @@ export class JWT {
   base64UrlEncode(data) {
     let base64;
     if (typeof data === 'string') {
-      base64 = btoa(data);
+      // 先将 UTF-8 字符串转换为字节，再进行 base64 编码
+      // 这样可以处理中文等非 Latin1 字符
+      const encoder = new TextEncoder();
+      const bytes = encoder.encode(data);
+      base64 = btoa(String.fromCharCode(...bytes));
     } else if (data instanceof ArrayBuffer) {
       base64 = btoa(String.fromCharCode(...new Uint8Array(data)));
     } else {
@@ -104,7 +108,14 @@ export class JWT {
     while (str.length % 4) {
       str += '=';
     }
-    return atob(str);
+    // 解码后需要将字节转回 UTF-8 字符串
+    const binaryString = atob(str);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    const decoder = new TextDecoder();
+    return decoder.decode(bytes);
   }
 
   // 解析过期时间

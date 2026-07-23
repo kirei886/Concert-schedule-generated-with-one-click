@@ -700,122 +700,6 @@
     /* ====== 空状态占位 ====== */
     .empty-placeholder { display: none; }
 
-    /* ====== 特价推荐板块 ====== */
-    .promo-section {
-      margin-bottom: 16px;
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-      min-height: 300px;
-      display: flex;
-      flex-direction: column;
-    }
-    .promo-section.hide { display: none; }
-    .promo-header {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 17px; font-weight: 800; margin-bottom: 14px;
-      color: var(--text-main);
-    }
-    .promo-header .promo-badge {
-      font-size: 11px; padding: 2px 8px; border-radius: 10px;
-      background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-      color: #fff; font-weight: 700; letter-spacing: 0.5px;
-    }
-    .promo-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-      flex: 1;
-      align-content: center;
-    }
-    .promo-card {
-      border-radius: var(--radius-sm); overflow: hidden;
-      background: #fff; border: 1px solid var(--border);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-      transition: transform 0.15s, box-shadow 0.15s;
-      cursor: pointer; position: relative;
-    }
-    .promo-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    .promo-card .promo-img {
-      width: 100%; height: 80px; object-fit: cover; display: block;
-      background: #f8fafc;
-    }
-    .promo-card .promo-body { padding: 10px; }
-    .promo-card .promo-tag {
-      display: inline-block; font-size: 10px; font-weight: 700;
-      padding: 2px 7px; border-radius: 4px; margin-bottom: 6px;
-    }
-    .promo-card .promo-title {
-      font-size: 13px; font-weight: 600; color: var(--text-main);
-      line-height: 1.4; margin-bottom: 6px;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .promo-card .promo-price {
-      display: flex; align-items: baseline; gap: 4px;
-    }
-    .promo-card .promo-price .currency { font-size: 12px; color: #ee5a24; font-weight: 600; }
-    .promo-card .promo-price .amount { font-size: 20px; color: #ee5a24; font-weight: 800; }
-    .promo-card .promo-price .unit { font-size: 11px; color: var(--text-light); }
-    .promo-card .promo-origin {
-      font-size: 11px; color: var(--text-light); text-decoration: line-through; margin-left: 4px;
-    }
-    .promo-banner {
-      border-radius: 14px; padding: 16px 20px; margin-top: 12px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff; display: flex; align-items: center; gap: 14px;
-      cursor: pointer; transition: transform 0.15s;
-    }
-    .promo-banner:hover { transform: translateY(-2px); }
-    .promo-banner .banner-icon { font-size: 32px; flex-shrink: 0; }
-    .promo-banner .banner-text { flex: 1; }
-    .promo-banner .banner-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
-    .promo-banner .banner-sub { font-size: 12px; opacity: 0.85; }
-    .promo-banner .banner-arrow { font-size: 20px; opacity: 0.7; }
-
-    /* ====== 特价酒店列表 ====== */
-    .hotel-deals { margin-top: 14px; }
-    .hotel-deals-title {
-      font-size: 14px; font-weight: 700; margin-bottom: 10px;
-      color: var(--text-main); display: flex; align-items: center; gap: 6px;
-    }
-    .hotel-deal-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; margin-bottom: 8px;
-      border-radius: 12px; background: #fff;
-      border: 1px solid var(--border);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-      transition: box-shadow 0.15s;
-    }
-    .hotel-deal-item:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
-    .hotel-deal-item .hd-icon {
-      width: 44px; height: 44px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; flex-shrink: 0;
-      background: linear-gradient(135deg, #f0eef5, #e8e5f0);
-    }
-    .hotel-deal-item .hd-info { flex: 1; min-width: 0; }
-    .hotel-deal-item .hd-name {
-      font-size: 14px; font-weight: 600; color: var(--text-main);
-      margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .hotel-deal-item .hd-meta {
-      font-size: 12px; color: var(--text-light);
-      display: flex; align-items: center; gap: 8px;
-    }
-    .hotel-deal-item .hd-meta .hd-rating { color: #ffa502; font-weight: 600; }
-    .hotel-deal-item .hd-price-block { text-align: right; flex-shrink: 0; }
-    .hotel-deal-item .hd-price { font-size: 18px; font-weight: 800; color: #ee5a24; }
-    .hotel-deal-item .hd-price .currency { font-size: 12px; }
-    .hotel-deal-item .hd-price .unit { font-size: 11px; color: var(--text-light); font-weight: 400; }
-    .hotel-deal-item .hd-origin { font-size: 11px; color: var(--text-light); text-decoration: line-through; }
-    .hotel-deals-close {
-      width: 100%; padding: 8px; margin-top: 4px;
-      border: none; border-radius: 8px;
-      background: #f5f5f5; color: var(--text-light);
-      font-size: 12px; cursor: pointer; transition: background 0.15s;
-    }
-    .hotel-deals-close:hover { background: #eee; }
-
     /* ====== 下单弹窗 ====== */
     .order-modal {
       position: fixed; inset: 0; z-index: 1000;
@@ -965,62 +849,6 @@
     .concert-ticker-loading {
       padding: 10px 14px;
       font-size: 12px; color: rgba(255,255,255,0.4);
-    }
-
-    /* ====== 巴士应援板块 ====== */
-    .bus-card {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      background: linear-gradient(135deg, #f0f7ff, #f5f0ff);
-      border: 1px solid #d4e4f7;
-      border-radius: var(--radius);
-      padding: 16px 18px;
-      margin-bottom: 16px;
-      position: relative;
-      overflow: hidden;
-    }
-    .bus-card::before {
-      content: '';
-      position: absolute; top: -20px; right: -20px;
-      width: 80px; height: 80px;
-      background: radial-gradient(circle, rgba(124,58,237,0.08), transparent 70%);
-      border-radius: 50%;
-    }
-    .bus-card-left { flex-shrink: 0; }
-    .bus-card .bus-icon { font-size: 32px; }
-    .bus-card-right { flex: 1; min-width: 0; }
-    .bus-card .bus-title {
-      font-size: 15px; font-weight: 800; margin-bottom: 4px;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .bus-card .bus-subtitle {
-      font-size: 12px; color: var(--text-sub); margin-bottom: 8px; line-height: 1.4;
-    }
-    .bus-card .bus-tags {
-      display: flex; gap: 6px; flex-wrap: wrap;
-    }
-    .bus-card .bus-tag {
-      font-size: 10px; padding: 2px 8px; border-radius: 20px;
-      background: rgba(124,58,237,0.1); color: var(--primary);
-      font-weight: 600;
-    }
-    .bus-btn {
-      flex-shrink: 0;
-      padding: 10px 20px;
-      border: none; border-radius: 10px;
-      font-size: 14px; font-weight: 700; color: #fff;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
-      box-shadow: 0 3px 12px rgba(124,58,237,0.25);
-      white-space: nowrap;
-    }
-    .bus-btn:active { transform: scale(0.97); }
-    @media (max-width: 860px) {
-      .bus-card { flex-direction: column; text-align: center; }
-      .bus-btn { width: 100%; }
     }
 
     /* ====== 留言板 ====== */
@@ -1456,40 +1284,6 @@
 }
 .taxi-time-btn:hover { border-color: var(--primary); }
 
-/* ====== 巴士弹窗 ====== */
-    .bus-modal {
-      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.6); z-index: 1000;
-      align-items: center; justify-content: center; padding: 20px;
-    }
-    .bus-modal.show { display: flex; }
-    .bus-modal-content {
-      background: #fff; border-radius: 20px; padding: 32px 28px;
-      max-width: 340px; width: 100%; text-align: center;
-      animation: fadeInUp 0.3s ease-out;
-    }
-    .bus-modal .bus-modal-icon {
-      font-size: 48px; margin-bottom: 12px;
-    }
-    .bus-modal .bus-modal-title {
-      font-size: 18px; font-weight: 800; margin-bottom: 8px; color: var(--text-main);
-    }
-    .bus-modal .bus-modal-desc {
-      font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-bottom: 20px;
-    }
-    .bus-modal .bus-modal-qr {
-      width: 140px; height: 140px; margin: 0 auto 16px;
-      border-radius: 12px; background: #f3f4f6;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 60px; border: 2px dashed var(--border);
-    }
-    .bus-modal .bus-modal-close-btn {
-      width: 100%; padding: 12px; border: none; border-radius: 12px;
-      font-size: 15px; font-weight: 700; color: #fff;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      cursor: pointer; transition: transform 0.15s;
-    }
-    .bus-modal .bus-modal-close-btn:active { transform: scale(0.97); }
   </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -1593,23 +1387,6 @@
       <!-- ====== 右列：结果区 ====== -->
       <div class="right-panel">
 
-        <!-- 巴士包车 / 定制应援 -->
-        <div class="bus-card">
-          <div class="bus-card-left">
-            <div class="bus-icon">🚌</div>
-          </div>
-          <div class="bus-card-right">
-            <div class="bus-title">巴士包车 · 定制应援</div>
-            <div class="bus-subtitle">粉丝拼车/包车直达场馆，专属应援大巴一路嗨到现场</div>
-            <div class="bus-tags">
-              <span class="bus-tag">🔒 粉丝拼车</span>
-              <span class="bus-tag">🔒 包车直达</span>
-              <span class="bus-tag">🔒 应援定制</span>
-            </div>
-          </div>
-          <button class="bus-btn" onclick="openBusModal()">解锁</button>
-        </div>
-
         <!-- 错误提示区 -->
         <div id="errorArea"></div>
 
@@ -1624,52 +1401,6 @@
           <div class="concert-ticker-body" id="concertTickerBody">
             <div class="concert-ticker-loading">正在获取最新演唱会资讯...</div>
           </div>
-        </div>
-
-        <!-- 特价推荐（未生成行程时展示） -->
-        <div class="promo-section" id="promoSection">
-          <div class="promo-header">
-            🔥 今日特价 <span class="promo-badge">HOT</span>
-          </div>
-          <div class="promo-grid" id="promoGrid">
-            <div class="promo-card" onclick="loadDealFlights()">
-              <div class="promo-body">
-                <span class="promo-tag" style="background:#dbeafe;color:#1e40af;">✈️ 特价机票</span>
-                <div class="promo-title">热门航线低价速报 点击查看</div>
-                <div class="promo-price">
-                  <span class="currency">¥</span><span class="amount" id="dealFlightPrice">--</span><span class="unit">起</span>
-                </div>
-              </div>
-            </div>
-            <div class="promo-card" onclick="loadDealHotels('brand')">
-              <div class="promo-body">
-                <span class="promo-tag" style="background:#fef3c7;color:#92400e;">🏨 品牌酒店</span>
-                <div class="promo-title">全国品牌酒店特价 点击查看</div>
-                <div class="promo-price">
-                  <span class="currency">¥</span><span class="amount" id="dealHotelPrice">--</span><span class="unit">起/晚</span>
-                </div>
-              </div>
-            </div>
-            <div class="promo-card" onclick="loadDealHotels('budget')">
-              <div class="promo-body">
-                <span class="promo-tag" style="background:#dcfce7;color:#166534;">💰 经济实惠</span>
-                <div class="promo-title">高性价比酒店 点击查看</div>
-                <div class="promo-price">
-                  <span class="currency">¥</span><span class="amount" id="dealBudgetPrice">--</span><span class="unit">起/晚</span>
-                </div>
-              </div>
-            </div>
-            <div class="promo-card" onclick="loadDealHotels('venue')">
-              <div class="promo-body">
-                <span class="promo-tag" style="background:#fce7f3;color:#9d174d;">🎵 演唱会住宿</span>
-                <div class="promo-title">场馆周边酒店 点击查看</div>
-                <div class="promo-price">
-                  <span class="currency">¥</span><span class="amount" id="dealVenuePrice">--</span><span class="unit">起/晚</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="hotel-deals" id="hotelDeals" style="display:none;"></div>
         </div>
 
         <!-- 结果区域 -->
@@ -1688,20 +1419,11 @@
       <!-- Tab 切换 -->
       <div class="tabs">
         <button class="tab-btn active" data-tab="flights">✈️ 机票</button>
-        <button class="tab-btn" data-tab="trains">🚄 高铁</button>
-        <button class="tab-btn" data-tab="buses">🚌 巴士</button>
-        <button class="tab-btn" data-tab="taxis" id="tab-taxis-btn">🚕 打车</button>
         <button class="tab-btn" data-tab="hotels">🏨 酒店</button>
       </div>
 
       <!-- 机票结果 -->
       <div class="tab-content active" id="tab-flights"></div>
-      <!-- 高铁结果 -->
-      <div class="tab-content" id="tab-trains"></div>
-      <!-- 巴士结果 -->
-      <div class="tab-content" id="tab-buses"></div>
-      <!-- 打车结果 -->
-      <div class="tab-content" id="tab-taxis"></div>
       <!-- 酒店结果 -->
       <div class="tab-content" id="tab-hotels"></div>
 
@@ -1784,17 +1506,6 @@
       </div>
     </div>
 
-    <!-- 巴士应援弹窗 -->
-    <div class="bus-modal" id="busModal">
-      <div class="bus-modal-content">
-        <div class="bus-modal-icon">🚌</div>
-        <div class="bus-modal-title">巴士包车 · 定制应援</div>
-        <div class="bus-modal-desc">关注<span style="font-weight:700;color:var(--primary);">嘟嘟巴士</span>微信公众号<br>解锁粉丝拼车、包车直达、应援定制等专属服务</div>
-        <div class="bus-modal-qr"><img src="/images/dudu-bus-logo.png" alt="嘟嘟巴士" style="width:100px;height:100px;object-fit:contain;border-radius:12px;"></div>
-        <button class="bus-modal-close-btn" onclick="closeBusModal()">我知道了</button>
-      </div>
-    </div>
-
   </div><!-- /container -->
 
   <!-- 底部 -->
@@ -1819,6 +1530,7 @@ const state = {
   userLongitude: '',
   userLatitude: '',
   venueInfo: null,       // {name, city, latitude, longitude, adcode, address}
+  hotelSearchLocation: null, // 酒店搜索位置（澳门演出时为珠海位置）{destination, adcode, latitude, longitude}
   departureAirportCode: '',
   arrivalAirportCode: '',
   arrivalCity: '',
@@ -1863,6 +1575,7 @@ function clearItinerary() {
   state.selected = { flight: null, train: null, bus: null, taxi: null, hotel: null };
   state.autoRecommended = false;
   state.venueInfo = null;
+  state.hotelSearchLocation = null;
   state.hotelsMeta = { total: 0, loaded: 0, radius: 5000, hasMore: false };
   state.noFeasibleTransport = false;
 
@@ -1883,7 +1596,6 @@ function clearItinerary() {
   if (mapEl) mapEl.innerHTML = '<div class="map-placeholder"><div class="emoji">🗺️</div><div>生成行程后显示应援地图</div></div>';
 
   $('resultsSection').classList.remove('show');
-  $('promoSection').classList.remove('hide');
 }
 
 function formatDate(dateStr) {
@@ -2449,13 +2161,17 @@ async function generateItinerary() {
       throw new Error('无法确定场馆所在城市，请尝试更精确的场馆名称');
     }
 
+    // 澳门特殊处理：演出在澳门时，酒店和机票使用珠海
+    const isMacao = venueCity.includes('澳门') || venueCity === 'Macau' || venueCity === 'Macao';
+    const searchCity = isMacao ? '珠海' : venueCity;
+
     // 步骤2: 查询出发城市和到达城市的机场代码 + 火车站名
-    showLoading('正在查询交通信息...', '搜索机场和火车站');
+    showLoading('正在查询交通信息...', isMacao ? '搜索机场和火车站（澳门演出，为您搜索珠海交通）' : '搜索机场和火车站');
     const [depAirport, arrAirport, depStation, arrStation] = await Promise.all([
       getCityAirportCode(depCity),
-      getCityAirportCode(venueCity),
+      getCityAirportCode(searchCity),
       findTrainStation(depCity),
-      findTrainStation(venueCity),
+      findTrainStation(searchCity),
     ]);
 
     // 步骤3: 并行查询机票、高铁、酒店
@@ -2507,20 +2223,51 @@ async function generateItinerary() {
 
     // 酒店级联分页查询：5km优先加载最多200家，不足则扩到10km/20km
     const hotelSearchPromise = (async () => {
+      // 澳门演出时搜索珠海酒店
+      let hotelSearchDestination = state.venueInfo.name;
+      let hotelAdcode = state.venueInfo.adcode;
+      let hotelLat = state.venueInfo.latitude;
+      let hotelLng = state.venueInfo.longitude;
+
+      if (isMacao) {
+        // 搜索珠海市中心作为酒店目的地
+        try {
+          const zhuhaiPoi = await apiGet('/api/poi-search', { keywords: '珠海市', city: '珠海', offset: 1 });
+          if (zhuhaiPoi.code === 0 && zhuhaiPoi.data && zhuhaiPoi.data.places && zhuhaiPoi.data.places.length > 0) {
+            const zhCity = zhuhaiPoi.data.places[0];
+            hotelSearchDestination = '珠海';
+            hotelAdcode = zhCity.adcode;
+            hotelLat = zhCity.latitude;
+            hotelLng = zhCity.longitude;
+          }
+        } catch (e) {
+          // 如果获取珠海信息失败，仍使用澳门场馆信息作为降级方案
+          console.warn('获取珠海位置信息失败，使用澳门场馆位置', e);
+        }
+      }
+
+      // 保存酒店搜索位置信息，供"加载更多"功能使用
+      state.hotelSearchLocation = {
+        destination: hotelSearchDestination,
+        adcode: hotelAdcode,
+        latitude: hotelLat,
+        longitude: hotelLng
+      };
+
       const baseBody = {
-        destination: state.venueInfo.name,
+        destination: hotelSearchDestination,
         check_in: date,
         check_out: getNextDate(date),
       };
-      if (state.venueInfo.adcode) baseBody.adcode = state.venueInfo.adcode;
+      if (hotelAdcode) baseBody.adcode = hotelAdcode;
 
-      const hasCoords = state.venueInfo.latitude && state.venueInfo.longitude;
+      const hasCoords = hotelLat && hotelLng;
 
       async function searchHotelPage(radius, page) {
         const body = { ...baseBody, sort_by: 'distance', page_size: 50, page };
         if (hasCoords) {
-          body.latitude = state.venueInfo.latitude;
-          body.longitude = state.venueInfo.longitude;
+          body.latitude = hotelLat;
+          body.longitude = hotelLng;
           body.radius = radius;
         }
         try {
@@ -2676,43 +2423,35 @@ async function generateItinerary() {
 
     // 检查是否有任何结果
     const hasFlights = state.results.flights.length > 0;
-    const hasTrains = state.results.trains.length > 0;
-    const hasBuses = state.results.buses.length > 0;
-    const hasTaxis = state.results.taxis.length > 0;
     const hasHotels = state.results.hotels.length > 0;
 
-    if (!hasFlights && !hasTrains && !hasBuses && !hasTaxis && !hasHotels) {
-      showError('暂未找到符合条件的结果，可能是该日期/路线暂无票源。建议更换日期或尝试其他交通方式。', true);
+    if (!hasFlights && !hasHotels) {
+      showError('暂未找到符合条件的结果，可能是该日期/路线暂无票源。建议更换日期重试。', true);
       return;
     }
 
     // 过滤掉不可行的班次（已出发或无法按时到达）
     const now = new Date();
-    const isTodayShow = state.concertDate && 
-      new Date(state.concertDate.replace(/-/g, '/')).getTime() === 
+    const isTodayShow = state.concertDate &&
+      new Date(state.concertDate.replace(/-/g, '/')).getTime() ===
       new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     if (isTodayShow) {
       state.results.flights = state.results.flights.filter(f => isTransportFeasible(f, 'flight'));
-      state.results.trains = state.results.trains.filter(t => isTransportFeasible(t, 'train'));
-      state.results.buses = state.results.buses.filter(b => isTransportFeasible(b, 'bus'));
     }
 
-    // 检查是否有可行的交通方案
+    // 检查是否有可行的机票
     const hasFeasibleFlights = state.results.flights.length > 0;
-    const hasFeasibleTrains = state.results.trains.length > 0;
-    const hasFeasibleBuses = state.results.buses.length > 0;
-    const hasFeasibleTaxis = state.results.taxis.length > 0;
 
     // 设置无可行交通标志（用于行程概览显示提示）
-    state.noFeasibleTransport = !hasFeasibleFlights && !hasFeasibleTrains && !hasFeasibleBuses && !hasFeasibleTaxis;
+    state.noFeasibleTransport = !hasFeasibleFlights;
 
     // 渲染结果（即使没有可行交通也继续渲染）
     renderSummary();
     renderFlights();
-    renderTrains();
-    renderBuses();
-    renderTaxis();
+    // renderTrains();
+    // renderBuses();
+    // renderTaxis();
     renderHotels();
     // 智能推荐：综合性价比最优方案
     autoRecommendBest();
@@ -2721,7 +2460,6 @@ async function generateItinerary() {
     const mapTheme = getEffectiveTheme(artistName);
     renderMap(state.arrivalCity, mapTheme);
     $('resultsSection').classList.add('show');
-    $('promoSection').classList.add('hide');
 
     // 滚动到结果
     setTimeout(() => {
@@ -2772,106 +2510,42 @@ function calcTrainBusDuration(item) {
 }
 
 function autoRecommendBest() {
-  const candidates = [];
-  const comfortMap = { flight: 0.9, train: 0.75, bus: 0.45, taxi: 0.85 };
-
   // 机票候选（只考虑可行的）
   const flights = getSortedFlights();
+  const flightCandidates = [];
+
   flights.forEach((f, idx) => {
     if (!isTransportFeasible(f, 'flight')) return;
-    candidates.push({
-      type: 'flight', idx,
+    flightCandidates.push({
+      idx,
       price: f._minPrice,
       duration: calcFlightDuration(f),
-      comfort: comfortMap.flight,
       before5pm: f._before5pm ? 100 : 40,
     });
   });
 
-  // 高铁候选（只考虑可行的）
-  const trains = getSortedTrains();
-  trains.forEach((t, idx) => {
-    if (!isTransportFeasible(t, 'train')) return;
-    candidates.push({
-      type: 'train', idx,
-      price: t._minPrice,
-      duration: calcTrainBusDuration(t),
-      comfort: comfortMap.train,
-      before5pm: t._before5pm ? 100 : 40,
-    });
-  });
+  if (flightCandidates.length > 0) {
+    const minPrice = Math.min(...flightCandidates.map(c => c.price));
+    const minDuration = Math.min(...flightCandidates.map(c => c.duration));
 
-  // 巴士候选（只考虑可行的）
-  const buses = getSortedBuses();
-  buses.forEach((b, idx) => {
-    if (!isTransportFeasible(b, 'bus')) return;
-    candidates.push({
-      type: 'bus', idx,
-      price: b._minPrice,
-      duration: calcTrainBusDuration(b),
-      comfort: comfortMap.bus,
-      before5pm: b._before5pm ? 100 : 40,
-    });
-  });
-
-  // 打车候选（打车总是可行的）
-  const taxis = state.results.taxis;
-  taxis.forEach((t, idx) => {
-    candidates.push({
-      type: 'taxi', idx,
-      price: t.estimated_price,
-      duration: (t.estimated_duration || 3600) / 60,
-      comfort: comfortMap.taxi,
-      before5pm: 100,
-    });
-  });
-
-  if (candidates.length > 0) {
-    const minPrice = Math.min(...candidates.map(c => c.price));
-    const minDuration = Math.min(...candidates.map(c => c.duration));
-
-    candidates.forEach(c => {
+    flightCandidates.forEach(c => {
       const priceScore = (minPrice / c.price) * 100;
       const timeScore = (minDuration / c.duration) * 100;
-      const comfortScore = c.comfort * 100;
-      c.score = priceScore * 0.35 + timeScore * 0.30 + comfortScore * 0.15 + c.before5pm * 0.20;
+      c.score = priceScore * 0.40 + timeScore * 0.35 + c.before5pm * 0.25;
     });
 
-    candidates.sort((a, b) => b.score - a.score);
-    const best = candidates[0];
-
-    if (best.type === 'flight') selectFlight(best.idx);
-    else if (best.type === 'train') selectTrain(best.idx);
-    else if (best.type === 'bus') selectBus(best.idx);
-    else if (best.type === 'taxi') selectTaxi(best.idx);
+    flightCandidates.sort((a, b) => b.score - a.score);
+    selectFlight(flightCandidates[0].idx);
     state.noFeasibleTransport = false;
   } else {
-    // 没有可行的交通方案，设置标志位
+    // 没有可行的机票方案，设置标志位
     state.noFeasibleTransport = true;
   }
 
-  // 酒店推荐
+  // 酒店推荐：直接使用综合排序的第一位
   const hotels = getFilteredSortedHotels();
   if (hotels.length > 0) {
-    const hotelCandidates = hotels.map((h, idx) => ({
-      idx, item: h,
-      price: h.min_price || Infinity,
-      rating: h.review_score || 0,
-      distance: h.distance_km ?? 999,
-    }));
-
-    const minHPrice = Math.min(...hotelCandidates.map(c => c.price));
-    const minHDist = Math.min(...hotelCandidates.map(c => c.distance));
-
-    hotelCandidates.forEach(c => {
-      const priceScore = (minHPrice / c.price) * 100;
-      const ratingScore = (c.rating / 5) * 100;
-      const distScore = c.distance > 0 ? (minHDist / c.distance) * 100 : 100;
-      c.score = priceScore * 0.35 + ratingScore * 0.40 + distScore * 0.25;
-    });
-
-    hotelCandidates.sort((a, b) => b.score - a.score);
-    selectHotel(hotelCandidates[0].idx);
+    selectHotel(0); // 选择综合排序第一位
   }
 
   state.autoRecommended = true;
@@ -2881,10 +2555,11 @@ function renderSummary() {
   const venue = state.venueInfo;
   const sel = state.selected;
 
-  // 选中交通
+  // 选中交通（仅机票）
   let transportText = '未选择';
   let transportPrice = null;
   const concertDateMD = formatDate(state.concertDate);
+
   if (sel.flight) {
     const fDepT = getTimePart(sel.flight.dep_time) || sel.flight.dep_time || '';
     const fArrT = getTimePart(sel.flight.arr_time) || sel.flight.arr_time || '';
@@ -2892,43 +2567,16 @@ function renderSummary() {
     const fArrDateMD = fArrDays > 0 ? addDaysToDateMD(state.concertDate, fArrDays) : concertDateMD;
     transportText = `✈️ ${sel.flight.flight_no || ''} ${concertDateMD} ${fDepT} → ${fArrDateMD} ${fArrT}${fArrDays > 0 ? ' (+'+fArrDays+'天)' : ''}`;
     transportPrice = sel.flight._price;
-  } else if (sel.train) {
-    const tArrDays = parseInt(sel.train.arrive_days || '0');
-    const tArrDateMD = tArrDays > 0 ? addDaysToDateMD(state.concertDate, tArrDays) : concertDateMD;
-    transportText = `🚄 ${sel.train.train_code || ''} ${concertDateMD} ${sel.train.dep_time || ''} → ${tArrDateMD} ${sel.train.arr_time || ''}`;
-    transportPrice = sel.train._price;
-  } else if (sel.bus) {
-    const bArrDays = parseInt(sel.bus.arrive_days || '0');
-    const bArrDateMD = bArrDays > 0 ? addDaysToDateMD(state.concertDate, bArrDays) : concertDateMD;
-    transportText = `🚌 ${sel.bus.bus_code || ''} ${concertDateMD} ${sel.bus.dep_time || ''} → ${bArrDateMD} ${sel.bus.arr_time || ''}`;
-    transportPrice = sel.bus._price;
-  } else if (sel.taxi) {
-    transportText = `🚕 ${sel.taxi.car_type_name} ¥${sel.taxi._price}/趟`;
-    transportPrice = sel.taxi._price;
   } else if (state.noFeasibleTransport) {
     // 没有可行的交通方案
-    transportText = '⚠️ 暂无合适的交通方案，无法按时到达演出场地';
+    transportText = '⚠️ 暂无合适的机票方案，无法按时到达演出场地';
     transportPrice = null;
   } else {
     const sortedFlights = getSortedFlights();
-    const sortedTrains = getSortedTrains();
-    const sortedBuses = getSortedBuses();
-    const cheapestFlight = sortedFlights.length > 0 ? sortedFlights[0]._minPrice : null;
-    const cheapestTrain = sortedTrains.length > 0 ? sortedTrains[0]._minPrice : null;
-    const cheapestBus = sortedBuses.length > 0 ? sortedBuses[0]._minPrice : null;
-    const cheapestTaxi = state.results.taxis.length > 0
-      ? Math.min(...state.results.taxis.map(t => t.estimated_price))
-      : null;
-    const allCheapest = [cheapestFlight, cheapestTrain, cheapestBus, cheapestTaxi].filter(p => p !== null);
-    if (allCheapest.length > 0) {
-      const minP = Math.min(...allCheapest);
-      const labels = [];
-      if (cheapestFlight === minP) labels.push('机票');
-      if (cheapestTrain === minP) labels.push('高铁');
-      if (cheapestBus === minP) labels.push('巴士');
-      if (cheapestTaxi === minP) labels.push('打车');
-      transportText = `¥${minP} 起 (${labels.join('/')}, 未选择)`;
-      transportPrice = minP;
+    if (sortedFlights.length > 0) {
+      const cheapestFlight = sortedFlights[0]._minPrice;
+      transportText = `¥${cheapestFlight} 起 (机票, 未选择)`;
+      transportPrice = cheapestFlight;
     }
   }
 
@@ -2954,12 +2602,12 @@ function renderSummary() {
   const costs = [];
   if (transportPrice !== null) costs.push(transportPrice);
   if (hotelPrice !== null) costs.push(hotelPrice);
-  if (costs.length > 0) totalEstimate = `¥${costs.reduce((a,b) => a+b, 0)}${sel.flight || sel.train || sel.bus || sel.hotel ? '' : ' 起'}`;
+  if (costs.length > 0) totalEstimate = `¥${costs.reduce((a,b) => a+b, 0)}${sel.flight || sel.hotel ? '' : ' 起'}`;
 
   $('summaryCard').innerHTML = `
     <div style="font-size:16px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
       📋 行程概览
-      ${state.autoRecommended && (sel.flight || sel.train || sel.bus || sel.taxi || sel.hotel) ? '<span style="font-size:11px;font-weight:600;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;padding:2px 10px;border-radius:20px;">智能推荐</span>' : ''}
+      ${state.autoRecommended && (sel.flight || sel.hotel) ? '<span style="font-size:11px;font-weight:600;background:linear-gradient(135deg,var(--primary),var(--accent));color:#fff;padding:2px 10px;border-radius:20px;">智能推荐</span>' : ''}
     </div>
     ${$('artistName').value.trim() ? `
     <div class="summary-row">
@@ -2983,9 +2631,9 @@ function renderSummary() {
       <span class="value">${$('departureCity').value.trim()} → ${state.arrivalCity}</span>
     </div>
     <div class="summary-row">
-      <span class="icon">${sel.flight ? '✈️' : sel.train ? '🚄' : sel.bus ? '🚌' : sel.taxi ? '🚕' : '🚗'}</span>
+      <span class="icon">✈️</span>
       <span class="label">交通</span>
-      <span class="value ${sel.flight || sel.train || sel.bus || sel.taxi ? '' : 'muted'}">${transportText}</span>
+      <span class="value ${sel.flight ? '' : 'muted'}">${transportText}</span>
     </div>
     <div class="summary-row">
       <span class="icon">🏨</span>
@@ -2998,8 +2646,8 @@ function renderSummary() {
       <span class="label">预估总价</span>
       <span class="value" style="color:var(--accent);font-size:18px;">${totalEstimate}</span>
     </div>` : ''}
-    ${(sel.flight || sel.train || sel.bus || sel.taxi || sel.hotel) ? `
-    <div style="margin-top:8px;font-size:11px;color:var(--text-light);text-align:right;">已选定 ${[sel.flight?'机票':null, sel.train?'高铁':null, sel.bus?'巴士':null, sel.taxi?'打车':null, sel.hotel?'酒店':null].filter(Boolean).join('·')}</div>
+    ${(sel.flight || sel.hotel) ? `
+    <div style="margin-top:8px;font-size:11px;color:var(--text-light);text-align:right;">已选定 ${[sel.flight?'机票':null, sel.hotel?'酒店':null].filter(Boolean).join('·')}</div>
     ` : ''}
   `;
 }
@@ -3014,10 +2662,8 @@ function selectFlight(idx) {
     state.selected.flight = null; // 取消选择
   } else {
     state.selected.flight = { ...item, _id: idx, _price: item._minPrice };
-    state.selected.train = null; // 机票、高铁、巴士互斥
-    state.selected.bus = null;
   }
-  renderFlights(); renderTrains(); renderBuses(); renderSummary();
+  renderFlights(); renderSummary();
 }
 function selectTrain(idx) {
   state.autoRecommended = false;
@@ -3031,7 +2677,7 @@ function selectTrain(idx) {
     state.selected.flight = null; // 机票、高铁、巴士互斥
     state.selected.bus = null;
   }
-  renderFlights(); renderTrains(); renderBuses(); renderSummary();
+  renderFlights(); /* renderTrains(); renderBuses(); */ renderSummary();
 }
 function selectBus(idx) {
   state.autoRecommended = false;
@@ -3045,7 +2691,7 @@ function selectBus(idx) {
     state.selected.flight = null; // 机票、高铁、巴士互斥
     state.selected.train = null;
   }
-  renderFlights(); renderTrains(); renderBuses(); renderSummary();
+  renderFlights(); /* renderTrains(); renderBuses(); */ renderSummary();
 }
 function selectHotel(idx) {
   state.autoRecommended = false;
@@ -3072,7 +2718,7 @@ function selectTaxi(idx) {
     state.selected.train = null;
     state.selected.bus = null;
   }
-  renderTaxis(); renderFlights(); renderTrains(); renderBuses(); renderSummary();
+  /* renderTaxis(); */ renderFlights(); /* renderTrains(); renderBuses(); */ renderSummary();
 }
 
 // ====== 渲染机票 ======
@@ -3383,7 +3029,7 @@ async function taxiLocate(which, btn) {
         state.taxi.toAdcode = adcode;
         $('taxiToInput').value = addr;
       }
-      renderTaxis();
+      /* renderTaxis(); */
       showToast('定位成功', 'success');
     } catch (e) {
       showToast('逆地理编码失败，使用原始坐标', 'error');
@@ -3398,7 +3044,7 @@ async function taxiLocate(which, btn) {
         state.taxi.toLng = lng;
         $('taxiToInput').value = state.taxi.toName;
       }
-      renderTaxis();
+      /* renderTaxis(); */
     }
   }, (err) => {
     btn.classList.remove('loading');
@@ -3561,7 +3207,7 @@ async function taxiDoSearch() {
       taxiTypes.sort((a, b) => a.estimated_price - b.estimated_price);
       state.results.taxis = taxiTypes;
       state.selected.taxi = null;
-      renderTaxis();
+      /* renderTaxis(); */
       renderSummary();
       showToast('找到 ' + taxiTypes.length + ' 种车型', 'success');
     } else {
@@ -3656,14 +3302,23 @@ async function loadMoreHotels() {
   if (btn) { btn.disabled = true; btn.textContent = '加载中...'; }
 
   const meta = state.hotelsMeta;
-  const baseBody = {
+
+  // 使用保存的酒店搜索位置（澳门演出时为珠海位置）
+  const searchLocation = state.hotelSearchLocation || {
     destination: state.venueInfo.name,
+    adcode: state.venueInfo.adcode,
+    latitude: state.venueInfo.latitude,
+    longitude: state.venueInfo.longitude
+  };
+
+  const baseBody = {
+    destination: searchLocation.destination,
     check_in: state.concertDate,
     check_out: getNextDate(state.concertDate),
   };
-  if (state.venueInfo.adcode) baseBody.adcode = state.venueInfo.adcode;
+  if (searchLocation.adcode) baseBody.adcode = searchLocation.adcode;
 
-  const hasCoords = state.venueInfo.latitude && state.venueInfo.longitude;
+  const hasCoords = searchLocation.latitude && searchLocation.longitude;
   const existingIds = new Set(state.results.hotels.map(h => h.hotel_id));
   let newHotels = [];
 
@@ -3674,8 +3329,8 @@ async function loadMoreHotels() {
     for (let page = 1; page <= 4; page++) {
       const body = {
         ...baseBody, sort_by: 'distance', page_size: 50, page,
-        latitude: state.venueInfo.latitude,
-        longitude: state.venueInfo.longitude,
+        latitude: searchLocation.latitude,
+        longitude: searchLocation.longitude,
         radius: nextRadius,
       };
       try {
@@ -5307,344 +4962,6 @@ function closeShareModal() {
   $('shareModal').classList.remove('show');
 }
 
-// ====== 巴士应援弹窗 ======
-function openBusModal() {
-  $('busModal').classList.add('show');
-}
-function closeBusModal() {
-  $('busModal').classList.remove('show');
-}
-// 点击遮罩关闭
-document.addEventListener('DOMContentLoaded', () => {
-  const busModal = $('busModal');
-  if (busModal) {
-    busModal.addEventListener('click', (e) => {
-      if (e.target === busModal) closeBusModal();
-    });
-  }
-});
-
-// ====== 今日特价：真实API ======
-let dealFlightsCache = null;
-let dealHotelsCache = null;
-
-// 页面加载时预加载特价数据
-async function preloadDeals() {
-  // 并行加载机票和酒店特价
-  const flightPromise = apiGet('/api/deal-flights').then(data => {
-    if (data && data.code === 0 && data.data.length > 0) {
-      dealFlightsCache = data.data;
-      const minPrice = Math.min(...data.data.map(f => f.price));
-      const el = $('dealFlightPrice');
-      if (el) el.textContent = minPrice;
-    }
-  }).catch(() => {});
-
-  const hotelPromise = apiGet('/api/deal-hotels').then(data => {
-    if (data && data.code === 0 && data.data.length > 0) {
-      dealHotelsCache = data.data;
-      // 按价格区间分类
-      const brandHotels = data.data.filter(h => h.price >= 150);
-      const budgetHotels = data.data.filter(h => h.price < 150);
-      if (brandHotels.length > 0) {
-        const el = $('dealHotelPrice');
-        if (el) el.textContent = Math.min(...brandHotels.map(h => h.price));
-      }
-      if (budgetHotels.length > 0) {
-        const el = $('dealBudgetPrice');
-        if (el) el.textContent = Math.min(...budgetHotels.map(h => h.price));
-      }
-      if (data.data.length > 0) {
-        const el = $('dealVenuePrice');
-        if (el) el.textContent = data.data[0].price;
-      }
-    }
-  }).catch(() => {});
-
-  await Promise.all([flightPromise, hotelPromise]);
-}
-
-// 展示特价机票列表
-async function loadDealFlights() {
-  const container = $('hotelDeals');
-
-  // 如果已经展开同一类别，则收起
-  if (container.dataset.cat === 'flights' && container.style.display !== 'none') {
-    container.style.display = 'none';
-    container.dataset.cat = '';
-    return;
-  }
-
-  container.innerHTML = `<div class="hotel-deals-title">✈️ 特价机票 · 加载中...</div>`;
-  container.style.display = 'block';
-  container.dataset.cat = 'flights';
-
-  let flights = dealFlightsCache;
-  if (!flights) {
-    const data = await apiGet('/api/deal-flights');
-    if (data && data.code === 0) {
-      flights = data.data;
-      dealFlightsCache = flights;
-    }
-  }
-
-  if (!flights || flights.length === 0) {
-    container.innerHTML = `<div class="hotel-deals-title">✈️ 特价机票</div><div style="padding:16px;color:var(--text-light);font-size:13px;">暂无特价机票数据</div><button class="hotel-deals-close" onclick="hideHotelDeals()">收起列表</button>`;
-    return;
-  }
-
-  // 缓存当前特价数据，用于下单
-  container.dataset.flights = JSON.stringify(flights);
-
-  container.innerHTML = `
-    <div class="hotel-deals-title">✈️ 特价机票 · 共${flights.length}条航线</div>
-    ${flights.map((f, idx) => `
-      <div class="hotel-deal-item" style="cursor:pointer;" onclick="openFlightOrderForm(${idx})">
-        <div class="hd-icon">✈️</div>
-        <div class="hd-info">
-          <div class="hd-name">${f.route} ${f.flight_no}</div>
-          <div class="hd-meta">
-            <span>${f.depart_date}</span>
-            <span>${f.dep_time} → ${f.arr_time}</span>
-            <span>${f.cabin_name || '经济舱'}</span>
-          </div>
-        </div>
-        <div class="hd-price-block">
-          <div class="hd-price"><span class="currency">¥</span>${f.price}</div>
-          <div style="font-size:10px;color:var(--accent);">直接购买 ›</div>
-        </div>
-      </div>
-    `).join('')}
-    <button class="hotel-deals-close" onclick="hideHotelDeals()">收起列表</button>
-  `;
-}
-
-// 展示特价酒店列表
-async function loadDealHotels(category) {
-  const container = $('hotelDeals');
-
-  // 如果已经展开同一类别，则收起
-  if (container.dataset.cat === 'hotel_' + category && container.style.display !== 'none') {
-    container.style.display = 'none';
-    container.dataset.cat = '';
-    return;
-  }
-
-  const titles = { brand: '🏨 品牌酒店特价', budget: '💰 经济实惠酒店', venue: '🎵 场馆周边酒店' };
-  const title = titles[category] || '特价酒店';
-
-  container.innerHTML = `<div class="hotel-deals-title">${title} · 加载中...</div>`;
-  container.style.display = 'block';
-  container.dataset.cat = 'hotel_' + category;
-
-  let hotels = dealHotelsCache;
-  if (!hotels) {
-    const data = await apiGet('/api/deal-hotels');
-    if (data && data.code === 0) {
-      hotels = data.data;
-      dealHotelsCache = hotels;
-    }
-  }
-
-  if (!hotels || hotels.length === 0) {
-    container.innerHTML = `<div class="hotel-deals-title">${title}</div><div style="padding:16px;color:var(--text-light);font-size:13px;">暂无特价酒店数据</div><button class="hotel-deals-close" onclick="hideHotelDeals()">收起列表</button>`;
-    return;
-  }
-
-  // 按类别筛选
-  let filtered = hotels;
-  if (category === 'brand') filtered = hotels.filter(h => h.price >= 150);
-  else if (category === 'budget') filtered = hotels.filter(h => h.price < 150);
-  // venue: 全部
-
-  // 缓存当前特价数据，用于下单
-  container.dataset.hotels = JSON.stringify(filtered);
-
-  container.innerHTML = `
-    <div class="hotel-deals-title">${title} · 共${filtered.length}家</div>
-    ${filtered.map((h, idx) => `
-      <div class="hotel-deal-item" style="cursor:pointer;" onclick="openHotelOrderForm(${idx})">
-        <div class="hd-icon">🏨</div>
-        <div class="hd-info">
-          <div class="hd-name">${h.name}</div>
-          <div class="hd-meta">
-            <span class="hd-rating">★ ${h.rating}</span>
-            <span>${h.dist}</span>
-            <span>${h.city}</span>
-          </div>
-        </div>
-        <div class="hd-price-block">
-          <div class="hd-price"><span class="currency">¥</span>${h.price}<span class="unit">/晚</span></div>
-          <div style="font-size:10px;color:var(--accent);">直接预订 ›</div>
-        </div>
-      </div>
-    `).join('')}
-    <button class="hotel-deals-close" onclick="hideHotelDeals()">收起列表</button>
-  `;
-}
-
-// 打开特价机票下单表单
-function openFlightOrderForm(idx) {
-  const container = $('hotelDeals');
-  const flights = JSON.parse(container.dataset.flights || '[]');
-  const f = flights[idx];
-  if (!f) return;
-
-  showOrderModal({
-    title: `✈️ 购买 ${f.route} ${f.flight_no}`,
-    subtitle: `${f.depart_date} ${f.dep_time} → ${f.arr_time} · ${f.cabin_name || '经济舱'} · ¥${f.price}`,
-    fields: [
-      { id: 'flightPassengerName', label: '乘机人姓名', type: 'text', placeholder: '请输入真实姓名', required: true },
-      { id: 'flightPassengerIdCard', label: '身份证号', type: 'text', placeholder: '请输入身份证号', required: true },
-      { id: 'flightContactName', label: '联系人姓名', type: 'text', placeholder: '请输入联系人姓名', required: true },
-      { id: 'flightContactPhone', label: '联系人手机', type: 'tel', placeholder: '请输入手机号', required: true },
-    ],
-    onSubmit: async (data) => {
-      const outTradeNo = 'FL_' + Date.now();
-      const res = await apiPost('/api/flight-order-create', {
-        offer_id: f.offer_id,
-        out_trade_no: outTradeNo,
-        contact: { name: data.flightContactName, phone: data.flightContactPhone },
-        passengers: [{ name: data.flightPassengerName, id_card: data.flightPassengerIdCard }],
-      });
-      if (res && res.code === 0 && res.data && res.data.pay_url) {
-        window.open(res.data.pay_url, '_blank');
-        showToast('已跳转支付页面，请完成支付');
-      } else if (res && res.code === 0) {
-        showToast('下单成功，请留意订单状态');
-      } else {
-        showToast((res && res.message) || '下单失败，请稍后重试', 'error');
-      }
-    },
-  });
-}
-
-// 打开特价酒店下单表单
-function openHotelOrderForm(idx) {
-  const container = $('hotelDeals');
-  const hotels = JSON.parse(container.dataset.hotels || '[]');
-  const h = hotels[idx];
-  if (!h) return;
-
-  showOrderModal({
-    title: `🏨 预订 ${h.name}`,
-    subtitle: `${h.city} · ${h.check_in} 至 ${h.check_out} · ¥${h.price}/晚`,
-    fields: [
-      { id: 'hotelGuestName', label: '入住人姓名', type: 'text', placeholder: '请输入真实姓名', required: true },
-      { id: 'hotelContactName', label: '联系人姓名', type: 'text', placeholder: '请输入联系人姓名', required: true },
-      { id: 'hotelContactPhone', label: '联系人手机', type: 'tel', placeholder: '请输入手机号', required: true },
-    ],
-    onSubmit: async (data) => {
-      const outTradeNo = 'HT_' + Date.now();
-      const res = await apiPost('/api/hotel-order-create', {
-        offer_id: h.offer_id,
-        out_trade_no: outTradeNo,
-        contact: { name: data.hotelContactName, phone: data.hotelContactPhone },
-        guests: [{ name: data.hotelGuestName }],
-      });
-      if (res && res.code === 0 && res.data && res.data.pay_url) {
-        window.open(res.data.pay_url, '_blank');
-        showToast('已跳转支付页面，请完成支付');
-      } else if (res && res.code === 0) {
-        showToast('预订成功，请留意订单状态');
-      } else {
-        showToast((res && res.message) || '预订失败，请稍后重试', 'error');
-      }
-    },
-  });
-}
-
-// 通用下单弹窗
-function showOrderModal({ title, subtitle, fields, onSubmit }) {
-  const modal = document.createElement('div');
-  modal.className = 'order-modal';
-  modal.id = 'orderModal';
-  modal.innerHTML = `
-    <div class="order-modal-overlay" onclick="closeOrderModal()"></div>
-    <div class="order-modal-content">
-      <div class="order-modal-header">
-        <div class="order-modal-title">${title}</div>
-        <div class="order-modal-subtitle">${subtitle}</div>
-        <button class="order-modal-close" onclick="closeOrderModal()">×</button>
-      </div>
-      <div class="order-modal-body">
-        ${fields.map(f => `
-          <div class="order-form-group">
-            <label class="order-form-label">${f.label}${f.required ? '<span class="required">*</span>' : ''}</label>
-            <input type="${f.type}" id="${f.id}" class="order-form-input" placeholder="${f.placeholder}" ${f.required ? 'required' : ''}>
-          </div>
-        `).join('')}
-      </div>
-      <div class="order-modal-footer">
-        <button class="order-btn-secondary" onclick="closeOrderModal()">取消</button>
-        <button class="order-btn-primary" id="orderSubmitBtn">确认下单</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-
-  // 自动填入已保存的个人信息
-  try {
-    const saved = JSON.parse(localStorage.getItem('user_profile') || '{}');
-    const map = {
-      'flightPassengerName': saved.realName,
-      'hotelGuestName': saved.realName,
-      'flightPassengerIdCard': saved.idCard,
-      'flightContactName': saved.contactName,
-      'hotelContactName': saved.contactName,
-      'flightContactPhone': saved.contactPhone,
-      'hotelContactPhone': saved.contactPhone,
-    };
-    for (const f of fields) {
-      if (map[f.id] && $(f.id)) {
-        $(f.id).value = map[f.id];
-      }
-    }
-  } catch {}
-
-  $('orderSubmitBtn').onclick = async () => {
-    const data = {};
-    let valid = true;
-    for (const f of fields) {
-      const el = $(f.id);
-      const val = el.value.trim();
-      if (f.required && !val) {
-        el.style.borderColor = 'var(--danger)';
-        valid = false;
-      } else {
-        el.style.borderColor = '';
-      }
-      data[f.id] = val;
-    }
-    if (!valid) {
-      showToast('请填写完整信息', 'error');
-      return;
-    }
-    const btn = $('orderSubmitBtn');
-    btn.disabled = true;
-    btn.textContent = '下单中...';
-    try {
-      await onSubmit(data);
-      closeOrderModal();
-    } catch (e) {
-      showToast('下单失败: ' + (e.message || '网络错误'), 'error');
-      btn.disabled = false;
-      btn.textContent = '确认下单';
-    }
-  };
-}
-
-function closeOrderModal() {
-  const modal = $('orderModal');
-  if (modal) modal.remove();
-}
-
-function hideHotelDeals() {
-  const container = $('hotelDeals');
-  container.style.display = 'none';
-  container.dataset.cat = '';
-}
-
 // ====== 留言板 ======
 const MSG_STORAGE_KEY = 'concert_msg_board';
 const AVATAR_COLORS = ['#7C3AED','#EC4899','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EF4444','#06B6D4'];
@@ -6124,9 +5441,24 @@ function renderTickerItem() {
 
 // 切换演唱会收藏状态
 async function toggleFavorite(concertId, el) {
+  console.log('toggleFavorite 被调用', { concertId, el });
+
+  // 检查是否登录
+  if (!Auth.isLoggedIn()) {
+    showTickerToast('请先登录后再收藏');
+    setTimeout(() => {
+      window.location.href = '/login.html?redirect=/';
+    }, 1500);
+    return;
+  }
+
   const isFav = el.classList.contains('is-fav');
+  console.log('当前收藏状态:', isFav);
+
   if (isFav) {
+    // 取消收藏
     const data = await Auth.apiDelete('/api/favorites/' + concertId);
+    console.log('取消收藏响应:', data);
     if (data && data.code === 0) {
       el.classList.remove('is-fav');
       el.textContent = '♡';
@@ -6135,9 +5467,13 @@ async function toggleFavorite(concertId, el) {
       const c = tickerData.find(x => x.id === concertId);
       if (c) c.is_favorited = false;
       showTickerToast('已取消收藏');
+    } else {
+      showTickerToast(data?.message || '取消收藏失败');
     }
   } else {
+    // 添加收藏
     const data = await Auth.apiPost('/api/favorites', { concert_id: concertId });
+    console.log('添加收藏响应:', data);
     if (data && data.code === 0) {
       el.classList.add('is-fav');
       el.textContent = '♥';
@@ -6145,9 +5481,14 @@ async function toggleFavorite(concertId, el) {
       const c = tickerData.find(x => x.id === concertId);
       if (c) c.is_favorited = true;
       showTickerToast('已加入收藏');
+    } else {
+      showTickerToast(data?.message || '收藏失败');
     }
   }
 }
+
+// 确保函数在全局作用域可访问
+window.toggleFavorite = toggleFavorite;
 
 function startTickerRotation() {
   if (tickerTimer) clearInterval(tickerTimer);
@@ -6334,9 +5675,6 @@ function init() {
   // 开始定位
   detectLocation();
 
-  // 预加载今日特价数据，并直接展示特价机票列表
-  preloadDeals().then(() => loadDealFlights());
-
   // 初始化自定义主题 UI
   syncCustomThemeInputs('');
   updateCustomThemeUI();
@@ -6397,7 +5735,7 @@ async function saveItinerary() {
     return;
   }
 
-  if (!state.results.flights.length && !state.results.trains.length && !state.results.buses.length && !state.results.taxis.length && !state.results.hotels.length) {
+  if (!state.results.flights.length && !state.results.hotels.length) {
     showToast('请先生成行程后再保存', 'error');
     return;
   }
@@ -6489,14 +5827,59 @@ async function purchaseItem(type, idx) {
     const sorted = getFilteredSortedHotels();
     item = sorted[idx];
     if (!item) return;
-    unitPrice = item.min_price;
-    offerId = item.search_offer_id || item.offer_id || '';
+
+    // ========== 酒店预订：先调用房型接口获取产品级 offer_id ==========
+    try {
+      showToast('正在查询房型...', 'info');
+
+      const roomsData = await Auth.apiPost('/api/hotel-rooms', {
+        search_offer_id: item.search_offer_id || item.offer_id || ''
+      });
+
+      if (roomsData.code === 0 && roomsData.data && roomsData.data.room_types) {
+        const roomTypes = roomsData.data.room_types;
+
+        if (roomTypes.length === 0) {
+          showToast('该酒店暂无可预订房型，请选择其他酒店', 'error');
+          return;
+        }
+
+        // 自动选择第一个房型的第一个产品
+        const firstRoom = roomTypes[0];
+        const firstProduct = (firstRoom.products || [])[0];
+
+        if (!firstProduct || !firstProduct.offer_id) {
+          showToast('该酒店暂无可预订产品，请选择其他酒店', 'error');
+          return;
+        }
+
+        // 使用产品级 offer_id
+        offerId = firstProduct.offer_id;
+        unitPrice = firstProduct.price || item.min_price;
+
+        console.log('获取产品级 offer_id 成功:', {
+          room_name: firstRoom.room_name,
+          product_name: firstProduct.product_name,
+          price: firstProduct.price,
+          offer_id: offerId.substring(0, 50) + '...'
+        });
+
+      } else {
+        showToast(roomsData.message || '查询房型失败，请重新生成行程', 'error');
+        return;
+      }
+    } catch (err) {
+      console.error('查询房型失败:', err);
+      showToast('查询房型失败，请重新生成行程', 'error');
+      return;
+    }
+
     itemName = item.hotel_name || '未知酒店';
     const features = [];
     if (item.has_wifi) features.push('WiFi');
     if (item.has_breakfast) features.push('含早');
     if (item.has_parking) features.push('停车');
-    itemDetail = `¥${item.min_price}/晚 | 距场馆${item.distance_km != null ? Number(item.distance_km).toFixed(2) + 'km' : '未知'} | ${features.join(' · ') || '标准间'}`;
+    itemDetail = `¥${unitPrice}/晚 | 距场馆${item.distance_km != null ? Number(item.distance_km).toFixed(2) + 'km' : '未知'} | ${features.join(' · ') || '标准间'}`;
     travelDate = state.concertDate || '';
   } else if (type === 'taxi') {
     const taxis = state.results.taxis;
@@ -6533,14 +5916,18 @@ async function purchaseItem(type, idx) {
       title: type === 'flight' ? `✈️ 购买 ${itemName}` : type === 'hotel' ? `🏨 预订 ${itemName}` : type === 'train' ? `🚄 购买 ${itemName}` : `🚌 购买 ${itemName}`,
       subtitle: `${travelDate || ''} · ¥${unitPrice}`,
       fields: needPassengers ? [
-        { id: 'passengerName', label: '乘车人姓名', type: 'text', placeholder: '请输入真实姓名', required: true },
+        { id: 'passengerName', label: '乘客姓名', type: 'text', placeholder: '请输入真实姓名', required: true },
         { id: 'passengerIdCard', label: '身份证号', type: 'text', placeholder: '请输入身份证号', required: true },
+        { id: 'passengerPhone', label: '乘客手机', type: 'tel', placeholder: '请输入手机号', required: true },
+        { id: 'passengerBirthday', label: '出生日期', type: 'date', placeholder: 'YYYY-MM-DD', required: false },
         { id: 'contactName', label: '联系人姓名', type: 'text', placeholder: '请输入联系人姓名', required: true },
         { id: 'contactPhone', label: '联系人手机', type: 'tel', placeholder: '请输入手机号', required: true },
       ] : [
         { id: 'guestName', label: '入住人姓名', type: 'text', placeholder: '请输入真实姓名', required: true },
+        { id: 'guestIdCard', label: '身份证号', type: 'text', placeholder: '选填，有助于提高预订成功率', required: false },
         { id: 'contactName', label: '联系人姓名', type: 'text', placeholder: '请输入联系人姓名', required: true },
         { id: 'contactPhone', label: '联系人手机', type: 'tel', placeholder: '请输入手机号', required: true },
+        { id: 'contactEmail', label: '联系人邮箱', type: 'email', placeholder: '选填', required: false },
       ],
       onSubmit: async (data) => {
         const orderData = await Auth.apiPost('/api/orders', {
@@ -6554,8 +5941,20 @@ async function purchaseItem(type, idx) {
           contact_name: data.contactName || _currentUser.nickname || _currentUser.username,
           contact_phone: data.contactPhone || _currentUser.phone || '',
           offer_id: offerId,
-          passengers: needPassengers ? [{ name: data.passengerName, id_card: data.passengerIdCard }] : undefined,
-          guests: needGuests ? [{ name: data.guestName }] : undefined,
+          passengers: needPassengers ? [{
+            type: 'adult',
+            name: data.passengerName,
+            id_type: 'ID_CARD',
+            id_number: data.passengerIdCard,
+            phone: data.passengerPhone,
+            birthday: data.passengerBirthday || '',
+            nationality_code: 'CN'
+          }] : undefined,
+          guests: needGuests ? [{
+            name: data.guestName,
+            id_number: data.guestIdCard || '',
+            id_type: data.guestIdCard ? 'ID_CARD' : ''
+          }] : undefined,
           trip_context: tripContext,
         });
 
