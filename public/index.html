@@ -130,12 +130,6 @@
         margin-bottom: 0;
       }
 
-      /* 精选演出无间距 */
-      .featured-concerts {
-        margin-top: 0;
-        margin-bottom: 0;
-      }
-
       /* 图片和媒体响应式 */
       img { max-width: 100%; height: auto; }
 
@@ -820,140 +814,6 @@
       color: #fff;
     }
     .order-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    /* ====== 精选演出海报轮播 ====== */
-    .featured-concerts {
-      margin-bottom: 20px;
-      background: var(--card-bg);
-      border-radius: var(--radius);
-      overflow: hidden;
-      box-shadow: var(--shadow);
-    }
-    .featured-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 16px;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .featured-icon {
-      font-size: 18px;
-      animation: sparkle 2s ease-in-out infinite;
-    }
-    .carousel-dots {
-      margin-left: auto;
-      display: flex;
-      gap: 6px;
-    }
-    .carousel-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.4);
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .carousel-dot.active {
-      background: #fff;
-      width: 24px;
-      border-radius: 4px;
-    }
-    .featured-carousel {
-      position: relative;
-      overflow: hidden;
-    }
-    .carousel-container {
-      display: flex;
-      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .poster-slide {
-      min-width: 100%;
-      position: relative;
-      cursor: pointer;
-      overflow: hidden;
-    }
-    .poster-slide img {
-      width: 100%;
-      height: auto;
-      display: block;
-      transition: transform 0.5s;
-    }
-    .poster-slide:hover img {
-      transform: scale(1.05);
-    }
-    .poster-overlay {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 50%, transparent 100%);
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-end;
-      padding: 20px;
-      color: #fff;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .poster-slide:hover .poster-overlay {
-      opacity: 1;
-    }
-    .poster-artist {
-      font-size: 24px;
-      font-weight: 800;
-      margin-bottom: 4px;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.5);
-    }
-    .poster-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      opacity: 0.9;
-    }
-    .poster-venue, .poster-date {
-      font-size: 13px;
-      opacity: 0.85;
-      margin-bottom: 4px;
-    }
-    .carousel-btn {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      border: none;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.9);
-      color: var(--primary);
-      font-size: 24px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.3s;
-      z-index: 10;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .carousel-btn:hover {
-      background: #fff;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      transform: translateY(-50%) scale(1.1);
-    }
-    .carousel-prev { left: 12px; }
-    .carousel-next { right: 12px; }
-
-    @media (max-width: 860px) {
-      .poster-slide {
-        aspect-ratio: 4/3;
-      }
-      .poster-artist {
-        font-size: 20px;
-      }
-      .carousel-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 20px;
-      }
-    }
 
     /* ====== 演唱会资讯滚动栏 ====== */
     .concert-ticker {
@@ -1776,22 +1636,6 @@
         <!-- 错误提示区 -->
         <div id="errorArea"></div>
 
-        <!-- 精选演出海报轮播 -->
-        <div class="featured-concerts" id="featuredConcerts">
-          <div class="featured-header">
-            <span class="featured-icon">⭐</span>
-            <span class="featured-title">精选演出推荐</span>
-            <div class="carousel-dots" id="carouselDots"></div>
-          </div>
-          <div class="featured-carousel">
-            <div class="carousel-container" id="carouselContainer">
-              <!-- 海报将通过 JS 动态插入 -->
-            </div>
-            <button class="carousel-btn carousel-prev" id="carouselPrev">‹</button>
-            <button class="carousel-btn carousel-next" id="carouselNext">›</button>
-          </div>
-        </div>
-
         <!-- 结果区域 -->
         <div class="results-section" id="resultsSection">
 
@@ -1995,12 +1839,6 @@ function clearItinerary() {
   if (mapEl) mapEl.innerHTML = '<div class="map-placeholder"><div class="emoji">🗺️</div><div>生成行程后显示应援地图</div></div>';
 
   $('resultsSection').classList.remove('show');
-
-  // 显示精选演出推荐
-  const featuredConcerts = $('featuredConcerts');
-  if (featuredConcerts) {
-    featuredConcerts.style.display = 'block';
-  }
 }
 
 function formatDate(dateStr) {
@@ -2940,12 +2778,6 @@ async function generateItinerary() {
     const mapTheme = getEffectiveTheme(artistName);
     renderMap(state.arrivalCity, mapTheme);
     $('resultsSection').classList.add('show');
-
-    // 隐藏精选演出推荐
-    const featuredConcerts = $('featuredConcerts');
-    if (featuredConcerts) {
-      featuredConcerts.style.display = 'none';
-    }
 
     // 滚动到结果
     setTimeout(() => {
@@ -5849,196 +5681,6 @@ function setupTabs() {
   });
 }
 
-// ====== 精选演出海报轮播 ======
-const FEATURED_CONCERTS = [
-  {
-    id: 'cxk-macau-2026',
-    artist: '蔡徐坤',
-    title: 'THE DEADMAN 澳门演唱会',
-    venue: '澳门威尼斯人综艺馆',
-    city: '澳门',
-    date: '2026-08-02',
-    dateDisplay: '08.02-08.03',
-    poster: '/posters/cxk-macau.jpg'
-  },
-  {
-    id: 'xuliang-shanghai-2026',
-    artist: '徐良',
-    title: '巡回演唱会 上海站',
-    venue: '上海·梅赛德斯-奔驰文化中心',
-    city: '上海',
-    date: '2026-07-31',
-    dateDisplay: '07.31-08.02',
-    poster: '/posters/xuliang-shanghai.jpg'
-  }
-];
-
-let currentSlide = 0;
-let carouselTimer = null;
-
-function initFeaturedConcerts() {
-  const container = $('carouselContainer');
-  const dotsContainer = $('carouselDots');
-
-  if (!container || !dotsContainer) return;
-
-  // 渲染海报
-  container.innerHTML = FEATURED_CONCERTS.map((concert, index) => `
-    <div class="poster-slide" data-index="${index}" data-concert-id="${concert.id}">
-      <img src="${concert.poster}" alt="${concert.artist} ${concert.title}" loading="lazy">
-      <div class="poster-overlay">
-        <div class="poster-info">
-          <div class="poster-artist">${concert.artist}</div>
-          <div class="poster-title">${concert.title}</div>
-          <div class="poster-venue">📍 ${concert.venue}</div>
-          <div class="poster-date">📅 ${concert.dateDisplay}</div>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  // 渲染指示点
-  dotsContainer.innerHTML = FEATURED_CONCERTS.map((_, index) =>
-    `<div class="carousel-dot ${index === 0 ? 'active' : ''}" data-index="${index}"></div>`
-  ).join('');
-
-  // 绑定点击事件
-  container.querySelectorAll('.poster-slide').forEach(slide => {
-    slide.addEventListener('click', () => {
-      const concertId = slide.dataset.concertId;
-      const concert = FEATURED_CONCERTS.find(c => c.id === concertId);
-      if (concert) {
-        fillFormFromFeaturedConcert(concert);
-      }
-    });
-  });
-
-  // 绑定指示点点击
-  dotsContainer.querySelectorAll('.carousel-dot').forEach(dot => {
-    dot.addEventListener('click', () => {
-      const index = parseInt(dot.dataset.index);
-      goToSlide(index);
-    });
-  });
-
-  // 绑定左右按钮
-  const prevBtn = $('carouselPrev');
-  const nextBtn = $('carouselNext');
-  if (prevBtn) prevBtn.addEventListener('click', () => goToSlide(currentSlide - 1));
-  if (nextBtn) nextBtn.addEventListener('click', () => goToSlide(currentSlide + 1));
-
-  // 启动自动轮播
-  startCarousel();
-
-  // 鼠标悬停时暂停轮播
-  const featuredSection = $('featuredConcerts');
-  if (featuredSection) {
-    featuredSection.addEventListener('mouseenter', stopCarousel);
-    featuredSection.addEventListener('mouseleave', startCarousel);
-  }
-}
-
-function goToSlide(index) {
-  const container = $('carouselContainer');
-  const dots = document.querySelectorAll('.carousel-dot');
-
-  if (!container || dots.length === 0) return;
-
-  // 循环处理
-  if (index < 0) index = FEATURED_CONCERTS.length - 1;
-  if (index >= FEATURED_CONCERTS.length) index = 0;
-
-  currentSlide = index;
-
-  // 更新轮播位置
-  container.style.transform = `translateX(-${currentSlide * 100}%)`;
-
-  // 更新指示点
-  dots.forEach((dot, i) => {
-    dot.classList.toggle('active', i === currentSlide);
-  });
-}
-
-function startCarousel() {
-  stopCarousel();
-  carouselTimer = setInterval(() => {
-    goToSlide(currentSlide + 1);
-  }, 5000); // 每5秒切换
-}
-
-function stopCarousel() {
-  if (carouselTimer) {
-    clearInterval(carouselTimer);
-    carouselTimer = null;
-  }
-}
-
-function fillFormFromFeaturedConcert(concert) {
-  // 填充表单
-  const artistInput = $('artistName');
-  const venueInput = $('venueInput');
-  const dateInput = $('concertDate');
-
-  if (artistInput) artistInput.value = concert.artist;
-  if (venueInput) venueInput.value = concert.venue;
-  if (dateInput) dateInput.value = concert.date;
-
-  // GA4 埋点：点击热门演唱会
-  if (typeof gtag !== 'undefined') {
-    gtag('event', 'select_promotion', {
-      promotion_name: '热门演唱会',
-      artist_name: concert.artist,
-      concert_city: concert.city,
-      venue_name: concert.venue,
-      concert_date: concert.date
-    });
-  }
-
-  // 显示提示
-  showToast(`已填入：${concert.artist} - ${concert.title}`, 'success');
-
-  // 立即更新留言板显示状态（显示留言板，隐藏推广区）
-  renderMessages();
-
-  // 检查出发城市是否已填写
-  const departureCityInput = $('departureCity');
-  const locationText = $('locationText');
-  const generateBtn = $('generateBtn');
-
-  // 等待定位完成后自动生成
-  const tryAutoGenerate = () => {
-    const depCity = departureCityInput.value.trim();
-    const isLocating = locationText && locationText.classList.contains('loading');
-    const isBtnDisabled = generateBtn && generateBtn.disabled;
-
-    if (depCity && !isLocating && !isBtnDisabled) {
-      // 出发城市已填写且不在定位中，且按钮已启用，自动生成行程
-      console.log('[自动生成] 条件满足，开始生成行程');
-      setTimeout(() => {
-        generateItinerary();
-      }, 500);
-    } else if (isLocating || isBtnDisabled) {
-      // 正在定位中或按钮未启用，等待后再次检查
-      console.log('[自动生成] 等待定位完成或按钮启用...');
-      setTimeout(tryAutoGenerate, 500);
-    } else {
-      // 出发城市未填写且未在定位，滚动到表单并提示
-      console.log('[自动生成] 出发城市未填写');
-      if (departureCityInput) {
-        departureCityInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        departureCityInput.focus();
-      }
-      setTimeout(() => {
-        showToast('请输入出发城市后即可生成行程', 'info');
-      }, 1000);
-    }
-  };
-
-  // 延迟执行，给定位一点时间
-  setTimeout(tryAutoGenerate, 300);
-}
-
-// ====== 初始化 ======
 // ====== 热门演唱会资讯栏 ======
 function getTagClass(tag) {
   if (tag === '火爆') return 'tag-fire';
@@ -6390,9 +6032,6 @@ function init() {
   // 初始化自定义主题 UI
   syncCustomThemeInputs('');
   updateCustomThemeUI();
-
-  // 初始化精选演出海报轮播
-  initFeaturedConcerts();
 
   // 加载热门演唱会资讯
   loadHotConcerts();
