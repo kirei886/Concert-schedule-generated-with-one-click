@@ -14,20 +14,25 @@ const router = Router({ base: '/api/auth' });
 router.post('/register', async (request) => {
   try {
     const body = await request.json();
-    const { username, email, password, nickname } = body;
+    const { username, phone, password } = body;
 
     // 验证输入
-    if (!username || !email || !password) {
+    if (!username || !phone || !password) {
       return errorResponse('请填写完整信息', 40001, 400);
+    }
+
+    // 验证手机号格式
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      return errorResponse('请输入正确的手机号', 40001, 400);
     }
 
     // 检查用户是否存在
     const existing = await request.env.DB.prepare(
-      'SELECT id FROM users WHERE username = ? OR email = ?'
-    ).bind(username, email).first();
+      'SELECT id FROM users WHERE username = ? OR phone = ?'
+    ).bind(username, phone).first();
 
     if (existing) {
-      return errorResponse('用户名或邮箱已存在', 40901, 409);
+      return errorResponse('用户名或手机号已存在', 40901, 409);
     }
 
     // 密码加密 - 使用 bcryptjs（需要安装）
@@ -38,13 +43,13 @@ router.post('/register', async (request) => {
 
     // 插入用户
     const result = await request.env.DB.prepare(`
-      INSERT INTO users (username, email, password_hash, nickname)
+      INSERT INTO users (username, phone, password_hash, nickname)
       VALUES (?, ?, ?, ?)
-    `).bind(username, email, hash, nickname || username).run();
+    `).bind(username, phone, hash, username).run();
 
     // 获取新用户
     const user = await request.env.DB.prepare(
-      'SELECT id, username, email, nickname, role FROM users WHERE id = ?'
+      'SELECT id, username, phone, nickname, role FROM users WHERE id = ?'
     ).bind(result.meta.last_row_id).first();
 
     // 生成 Token
@@ -67,9 +72,9 @@ router.post('/login', async (request) => {
       return errorResponse('请输入账号和密码', 40001, 400);
     }
 
-    // 查询用户
+    // 查询用户 - 支持用户名或手机号登录
     const user = await request.env.DB.prepare(
-      'SELECT * FROM users WHERE username = ? OR email = ?'
+      'SELECT * FROM users WHERE username = ? OR phone = ?'
     ).bind(account, account).first();
 
     if (!user) {
@@ -106,7 +111,7 @@ router.post('/login', async (request) => {
       user: {
         id: user.id,
         username: user.username,
-        email: user.email,
+        phone: user.phone,
         nickname: user.nickname,
         role: user.role
       }

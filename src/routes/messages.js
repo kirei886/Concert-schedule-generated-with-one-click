@@ -86,6 +86,18 @@ router.post('/', async (request) => {
       return errorResponse('留言内容不能为空', 40001, 400);
     }
 
+    // 检查图片大小（base64 编码后的大小）
+    if (sticker && sticker.length > 0) {
+      // Base64 编码后大约是原文件的 4/3 倍
+      // D1 单个字段限制约 1MB，为了安全起见限制在 800KB
+      const estimatedSize = (sticker.length * 3) / 4; // 估算原始大小（字节）
+      const maxSize = 800 * 1024; // 800KB
+
+      if (estimatedSize > maxSize) {
+        return errorResponse('图片过大，请上传小于 800KB 的图片', 40002, 400);
+      }
+    }
+
     const result = await request.env.DB.prepare(`
       INSERT INTO messages (user_id, parent_id, concert_id, artist, tag, content, sticker)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -94,6 +106,12 @@ router.post('/', async (request) => {
     return successResponse({ id: result.meta.last_row_id }, '发布成功');
   } catch (error) {
     console.error('Create message error:', error);
+
+    // 检查是否是数据库大小限制错误
+    if (error.message && (error.message.includes('SQLITE_TOOBIG') || error.message.includes('too big'))) {
+      return errorResponse('图片过大，请压缩后重试（建议小于 500KB）', 40003, 400);
+    }
+
     return errorResponse('发布留言失败', 50001, 500);
   }
 });

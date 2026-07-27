@@ -6,16 +6,84 @@
   <title>注册 - 演唱会行程</title>
   <link rel="stylesheet" href="/css/common.css">
   <style>
-    .auth-container { max-width: 400px; margin: 40px auto; padding: 0 20px; }
-    .auth-card { background: white; border-radius: 20px; box-shadow: var(--shadow); padding: 40px 32px; }
-    .auth-title { text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 8px;
+    body {
+      overflow-x: hidden;
+      width: 100vw;
+      max-width: 100vw;
+      box-sizing: border-box;
+    }
+    .auth-container {
+      max-width: 400px;
+      width: 100%;
+      margin: 40px auto;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
+    .auth-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 40px 32px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .auth-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
       background: linear-gradient(135deg, var(--primary), var(--accent));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .auth-subtitle { text-align: center; font-size: 13px; color: var(--text-sub); margin-bottom: 32px; }
-    .auth-footer { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-sub); }
-    .auth-footer a { color: var(--primary); text-decoration: none; font-weight: 500; }
-    .btn-submit { width: 100%; padding: 14px; font-size: 15px; margin-top: 8px; }
-    .error-msg { color: var(--error); font-size: 13px; margin-top: 8px; text-align: center; display: none; }
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      word-break: break-word;
+    }
+    .auth-subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-bottom: 32px;
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+    .auth-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      margin-top: 8px;
+      box-sizing: border-box;
+    }
+    .error-msg {
+      color: var(--error);
+      font-size: 13px;
+      margin-top: 8px;
+      text-align: center;
+      display: none;
+      word-break: break-word;
+    }
+
+    /* 移动端适配 */
+    @media (max-width: 576px) {
+      .auth-container {
+        margin: 20px auto;
+        padding: 0 16px;
+      }
+      .auth-card {
+        padding: 30px 20px;
+        border-radius: 16px;
+      }
+      .auth-title {
+        font-size: 20px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -29,12 +97,8 @@
           <input type="text" class="form-input" id="username" required minlength="2" maxlength="20" placeholder="2-20个字符" autocomplete="username">
         </div>
         <div class="form-group">
-          <label class="form-label">邮箱</label>
-          <input type="email" class="form-input" id="email" required placeholder="your@email.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label">昵称（可选）</label>
-          <input type="text" class="form-input" id="nickname" maxlength="30" placeholder="展示给其他用户的名称">
+          <label class="form-label">手机号</label>
+          <input type="tel" class="form-input" id="phone" required pattern="^1[3-9]\d{9}$" placeholder="请输入11位手机号" autocomplete="tel">
         </div>
         <div class="form-group">
           <label class="form-label">密码</label>
@@ -58,17 +122,23 @@
     async function handleRegister(e) {
       e.preventDefault();
       const username = document.getElementById('username').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const nickname = document.getElementById('nickname').value.trim();
+      const phone = document.getElementById('phone').value.trim();
       const password = document.getElementById('password').value;
       const errorEl = document.getElementById('errorMsg');
       errorEl.style.display = 'none';
+
+      // 验证手机号格式
+      if (!/^1[3-9]\d{9}$/.test(phone)) {
+        errorEl.textContent = '请输入正确的11位手机号';
+        errorEl.style.display = 'block';
+        return false;
+      }
 
       try {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, password, nickname })
+          body: JSON.stringify({ username, phone, password })
         });
         const data = await res.json();
         if (data.code === 0) {

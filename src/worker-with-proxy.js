@@ -718,16 +718,21 @@ router.get('/api/settings/public', async (request, env) => {
 router.post('/api/auth/register', async (request, env) => {
   try {
     const body = await request.json();
-    const { username, email, password, nickname } = body;
+    const { username, phone, password, nickname } = body;
 
     // 验证必填字段
-    if (!username || !email || !password) {
+    if (!username || !phone || !password) {
       return json({ code: 400, message: '请填写完整信息', data: null }, { status: 400 });
     }
 
     // 验证用户名长度
     if (username.length < 3 || username.length > 20) {
       return json({ code: 400, message: '用户名长度应为3-20个字符', data: null }, { status: 400 });
+    }
+
+    // 验证手机号格式
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      return json({ code: 400, message: '请输入正确的11位手机号', data: null }, { status: 400 });
     }
 
     // 验证密码长度
@@ -744,13 +749,13 @@ router.post('/api/auth/register', async (request, env) => {
       return json({ code: 400, message: '用户名已存在', data: null }, { status: 400 });
     }
 
-    // 检查邮箱是否已存在
-    const existingEmail = await env.DB.prepare(
+    // 检查手机号是否已存在（使用 email 字段存储手机号）
+    const existingPhone = await env.DB.prepare(
       'SELECT id FROM users WHERE email = ?'
-    ).bind(email).first();
+    ).bind(phone).first();
 
-    if (existingEmail) {
-      return json({ code: 400, message: '邮箱已被注册', data: null }, { status: 400 });
+    if (existingPhone) {
+      return json({ code: 400, message: '该手机号已被注册', data: null }, { status: 400 });
     }
 
     // 先测试 token 生成（避免插入数据库后 token 生成失败导致脏数据）
@@ -766,9 +771,10 @@ router.post('/api/auth/register', async (request, env) => {
     }
 
     // 插入新用户（密码应该加密，这里简化处理）
+    // 注意：email 字段实际存储手机号
     const result = await env.DB.prepare(
       'INSERT INTO users (username, email, password_hash, nickname, role) VALUES (?, ?, ?, ?, ?)'
-    ).bind(username, email, password, nickname || username, 'user').run();
+    ).bind(username, phone, password, nickname || username, 'user').run();
 
     const userId = result.meta.last_row_id;
 
@@ -785,7 +791,7 @@ router.post('/api/auth/register', async (request, env) => {
         user: {
           id: userId,
           username: username,
-          email: email,
+          phone: phone,
           nickname: nickname || username,
           role: 'user'
         }
