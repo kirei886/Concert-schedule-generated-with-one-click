@@ -2,6 +2,90 @@
    演唱会行程生成器 - 移动端适配样式
    ==================================== */
 
+/* ====== 导航栏响应式适配 ====== */
+/* PC端显示 */
+@media (min-width: 769px) {
+  .navbar-mobile {
+    display: none !important;
+  }
+  .mobile-menu,
+  .mobile-menu-overlay {
+    display: none !important;
+  }
+}
+
+/* 移动端显示 */
+@media (max-width: 768px) {
+  /* 隐藏PC端导航栏 */
+  .navbar-desktop {
+    display: none !important;
+  }
+
+  /* 显示移动端导航栏 */
+  .navbar-mobile {
+    display: flex !important;
+  }
+
+  /* 移动端菜单项样式 */
+  .mobile-menu-item {
+    display: block;
+    padding: 14px 16px;
+    margin-bottom: 4px;
+    border-radius: 10px;
+    font-size: 15px;
+    color: var(--text-main);
+    text-decoration: none;
+    transition: all 0.2s;
+    background: transparent;
+  }
+
+  .mobile-menu-item:hover,
+  .mobile-menu-item:active {
+    background: var(--theme-tint, #f5f3ff);
+  }
+
+  /* 移动端用户信息区域 */
+  .mobile-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    margin: -20px -20px 20px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(236,72,153,0.08));
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* 汉堡按钮动画 */
+  .hamburger-btn {
+    transition: transform 0.2s;
+  }
+
+  .hamburger-btn:active {
+    transform: scale(0.9);
+  }
+
+  /* 菜单滑入动画 */
+  .mobile-menu {
+    transition: right 0.3s ease;
+  }
+
+  /* 遮罩渐变动画 */
+  .mobile-menu-overlay {
+    transition: opacity 0.3s ease;
+    animation: fadeInOverlay 0.3s ease;
+  }
+
+  @keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* 防止菜单打开时页面滚动 */
+  body.mobile-menu-open {
+    overflow: hidden;
+  }
+}
+
 /* ====== Phase 1: CSS 变量移动端适配 ====== */
 @media (max-width: 768px) {
   :root {

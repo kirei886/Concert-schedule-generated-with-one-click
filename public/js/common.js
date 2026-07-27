@@ -127,20 +127,21 @@ function renderNavbar(currentUser) {
   if (!nav) return;
 
   const links = [
-    { href: '/', text: '行程生成器' },
-    { href: '/my-trips.html', text: '我的行程' },
-    { href: '/favorites.html', text: '我的收藏' },
-    { href: '/orders.html', text: '我的订单' },
-    { href: '/messages.html', text: '留言板' },
+    { href: '/', text: '行程生成器', icon: '🏠' },
+    { href: '/my-trips.html', text: '我的行程', icon: '📋' },
+    { href: '/favorites.html', text: '我的收藏', icon: '⭐' },
+    { href: '/orders.html', text: '我的订单', icon: '📦' },
+    { href: '/messages.html', text: '留言板', icon: '💬' },
   ];
 
-  let userHtml = '';
+  // PC端用户区域
+  let userHtmlPC = '';
   if (currentUser) {
     const avatar = currentUser.avatar_url
       ? `<img src="${escapeHtml(currentUser.avatar_url)}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">`
       : `<div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#EC4899);display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:600;">${escapeHtml((currentUser.nickname || currentUser.username || '?')[0])}</div>`;
 
-    userHtml = `
+    userHtmlPC = `
       <div class="nav-user" style="display:flex;align-items:center;gap:8px;cursor:pointer;position:relative;" onclick="toggleUserMenu()">
         ${avatar}
         <span style="font-size:13px;color:var(--text-main);">${escapeHtml(currentUser.nickname || currentUser.username)}</span>
@@ -156,20 +157,79 @@ function renderNavbar(currentUser) {
       </div>
     `;
   } else {
-    userHtml = `
+    userHtmlPC = `
       <a href="/login.html" style="font-size:13px;color:var(--primary);text-decoration:none;font-weight:500;">登录</a>
       <a href="/register.html" style="font-size:13px;color:white;background:linear-gradient(135deg,#7C3AED,#EC4899);padding:6px 16px;border-radius:20px;text-decoration:none;font-weight:500;">注册</a>
     `;
   }
 
-  nav.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;">
-      <div style="display:flex;align-items:center;gap:24px;">
-        <a href="/" style="font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">演唱会行程</a>
-        ${links.map(l => `<a href="${l.href}" style="font-size:13px;color:var(--text-sub);text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-sub)'">${l.text}</a>`).join('')}
+  // 移动端菜单内容
+  let mobileMenuItems = '';
+  links.forEach(l => {
+    mobileMenuItems += `<a href="${l.href}" class="mobile-menu-item" onclick="closeMobileMenu()">${l.icon} ${l.text}</a>`;
+  });
+
+  // 移动端用户区域
+  let userHtmlMobile = '';
+  if (currentUser) {
+    const avatarMobile = currentUser.avatar_url
+      ? `<img src="${escapeHtml(currentUser.avatar_url)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
+      : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#7C3AED,#EC4899);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:600;">${escapeHtml((currentUser.nickname || currentUser.username || '?')[0])}</div>`;
+
+    userHtmlMobile = `
+      <div class="mobile-user-info">
+        ${avatarMobile}
+        <div>
+          <div style="font-size:16px;font-weight:600;color:var(--text-main);">${escapeHtml(currentUser.nickname || currentUser.username)}</div>
+          ${currentUser.role === 'admin' ? '<div style="font-size:11px;color:#D97706;margin-top:2px;">管理员</div>' : ''}
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        ${userHtml}
+      <a href="/profile.html" class="mobile-menu-item" onclick="closeMobileMenu()">👤 个人中心</a>
+      ${currentUser.role === 'admin' ? '<a href="/admin-concerts.html" class="mobile-menu-item" onclick="closeMobileMenu()" style="color:#7C3AED;">🎫 票务管理</a>' : ''}
+      <div class="mobile-menu-item" onclick="Auth.logout()" style="color:#ef4444;cursor:pointer;">🚪 退出登录</div>
+    `;
+  } else {
+    userHtmlMobile = `
+      <a href="/login.html" class="mobile-menu-item" onclick="closeMobileMenu()" style="color:var(--primary);font-weight:600;">🔑 登录</a>
+      <a href="/register.html" class="mobile-menu-item" onclick="closeMobileMenu()" style="background:linear-gradient(135deg,#7C3AED,#EC4899);color:white;font-weight:600;text-align:center;">✨ 注册账号</a>
+    `;
+  }
+
+  nav.innerHTML = `
+    <!-- PC端导航栏 -->
+    <div class="navbar-desktop" style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:rgba(255,255,255,0.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;">
+      <div class="nav-left" style="display:flex;align-items:center;gap:24px;">
+        <a href="/" style="font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">演唱会行程</a>
+        <div class="nav-links" style="display:flex;align-items:center;gap:24px;">
+          ${links.map(l => `<a href="${l.href}" style="font-size:13px;color:var(--text-sub);text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-sub)'">${l.text}</a>`).join('')}
+        </div>
+      </div>
+      <div class="nav-right" style="display:flex;align-items:center;gap:12px;">
+        ${userHtmlPC}
+      </div>
+    </div>
+
+    <!-- 移动端导航栏 -->
+    <div class="navbar-mobile" style="display:none;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,0.95);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;">
+      <a href="/" style="font-size:16px;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;">🎵 演唱会行程</a>
+      <button class="hamburger-btn" onclick="toggleMobileMenu()" style="width:44px;height:44px;border:none;background:transparent;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-main);">
+        <span id="hamburgerIcon">☰</span>
+      </button>
+    </div>
+
+    <!-- 移动端菜单遮罩 -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay" onclick="closeMobileMenu()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99;"></div>
+
+    <!-- 移动端菜单 -->
+    <div class="mobile-menu" id="mobileMenu" style="display:none;position:fixed;top:0;right:-100%;width:80%;max-width:320px;height:100vh;background:white;z-index:100;overflow-y:auto;transition:right 0.3s ease;box-shadow:-4px 0 20px rgba(0,0,0,0.15);">
+      <div style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <span style="font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--primary),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">菜单</span>
+          <button onclick="closeMobileMenu()" style="width:36px;height:36px;border:none;background:#f3f4f6;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-sub);">✕</button>
+        </div>
+        ${mobileMenuItems}
+        <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+        ${userHtmlMobile}
       </div>
     </div>
   `;
@@ -179,6 +239,49 @@ function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
   if (menu) {
     menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  const overlay = document.getElementById('mobileMenuOverlay');
+  const icon = document.getElementById('hamburgerIcon');
+
+  if (menu && overlay && icon) {
+    const isOpen = menu.style.display === 'block';
+
+    if (isOpen) {
+      // 关闭菜单
+      menu.style.right = '-100%';
+      overlay.style.display = 'none';
+      icon.textContent = '☰';
+      setTimeout(() => {
+        menu.style.display = 'none';
+      }, 300);
+    } else {
+      // 打开菜单
+      menu.style.display = 'block';
+      overlay.style.display = 'block';
+      setTimeout(() => {
+        menu.style.right = '0';
+      }, 10);
+      icon.textContent = '✕';
+    }
+  }
+}
+
+function closeMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  const overlay = document.getElementById('mobileMenuOverlay');
+  const icon = document.getElementById('hamburgerIcon');
+
+  if (menu && overlay && icon) {
+    menu.style.right = '-100%';
+    overlay.style.display = 'none';
+    icon.textContent = '☰';
+    setTimeout(() => {
+      menu.style.display = 'none';
+    }, 300);
   }
 }
 
@@ -204,3 +307,5 @@ window.formatTime = formatTime;
 window.renderNavbar = renderNavbar;
 window.initPage = initPage;
 window.toggleUserMenu = toggleUserMenu;
+window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
